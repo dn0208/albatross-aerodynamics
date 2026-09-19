@@ -29,8 +29,8 @@ export const Route = createFileRoute("/")({
 });
 
 const TABS = [
-  { id: "tunnel", label: "Wind Tunnel Demonstration" },
-  { id: "soaring", label: "Dynamic Soaring Demonstration" },
+  { id: "tunnel", label: "WIND TUNNEL SIMULATION" },
+  { id: "soaring", label: "DYNAMIC SOARING SIMULATION" },
 ] as const;
 
 function Index() {
@@ -46,9 +46,7 @@ function Index() {
           Albatross-Inspired Aircraft Wings
         </h1>
         <p className="mt-2 max-w-3xl text-xs text-muted-foreground sm:text-sm">
-          A classroom simulator comparing rigid wingtips with hinged, albatross-inspired
-          wingtips under gust loading, and demonstrating dynamic soaring across a wind
-          gradient.
+          {"\n"}
         </p>
       </header>
 
