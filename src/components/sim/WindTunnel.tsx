@@ -177,21 +177,21 @@ function TunnelCanvas({
 
       const speedPx = (s.windSpeed / 30) * 3.6 * (1 + m.gust * 0.9);
       for (const p of parts) {
-        p.x += speedPx * p.v;
-        if (p.x > w + p.len) {
-          p.x = -p.len;
-          p.y = Math.random() * h;
+        p.y -= speedPx * p.v;
+        if (p.y < -p.len) {
+          p.y = h + p.len;
+          p.x = Math.random() * w;
         }
         const turbulence = m.gust * 3.4;
-        const yy = p.y + Math.sin((p.x + s.t * 120) * 0.02) * turbulence;
-        const g = ctx.createLinearGradient(p.x - p.len, yy, p.x, yy);
+        const xx = p.x + Math.sin((p.y + s.t * 120) * 0.02) * turbulence;
+        const g = ctx.createLinearGradient(xx, p.y + p.len, xx, p.y);
         g.addColorStop(0, "rgba(90,220,255,0)");
         g.addColorStop(1, `rgba(120,235,255,${0.25 + m.gust * 0.45})`);
         ctx.strokeStyle = g;
         ctx.lineWidth = 1.6;
         ctx.beginPath();
-        ctx.moveTo(p.x - p.len, yy);
-        ctx.lineTo(p.x, yy);
+        ctx.moveTo(xx, p.y + p.len);
+        ctx.lineTo(xx, p.y);
         ctx.stroke();
       }
 
