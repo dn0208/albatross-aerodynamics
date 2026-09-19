@@ -331,6 +331,7 @@ export default function DynamicSoaring() {
       if (!running) return;
       s.t += dt;
       const k = s.cycleSpeed;
+      const yOffset = s.altitudeOffset / 45;
 
       // --- Albatross-inspired: dynamic soaring cycle ---
       const period = 8 / k;
@@ -339,7 +340,7 @@ export default function DynamicSoaring() {
       const stageIndex = Math.floor(phase * 4);
       ds.stage = STAGES[stageIndex]!;
       // vertical: sinusoidal between 0.12 and 0.88, horizontal: figure sweep
-      ds.y = 0.5 - 0.38 * Math.cos(phase * Math.PI * 2);
+      ds.y = Math.max(0.05, Math.min(0.95, 0.5 - 0.38 * Math.cos(phase * Math.PI * 2) + yOffset));
       ds.x = 0.5 + 0.34 * Math.sin(phase * Math.PI * 2);
       const dyn = Math.sin(phase * Math.PI * 2);
       ds.heading = -dyn * 0.9 + (ds.stage.includes("Turn") ? 0.2 : 0);
@@ -357,7 +358,7 @@ export default function DynamicSoaring() {
       // --- Traditional: level cruise inside the lower layer ---
       const tr = s.trad;
       tr.x = (0.08 + ((s.t * 0.12 * k) % 1) * 0.9) % 1;
-      tr.y = 0.3 + Math.sin(s.t * 0.9 * k) * 0.03;
+      tr.y = Math.max(0.05, Math.min(0.95, 0.3 + Math.sin(s.t * 0.9 * k) * 0.03 + yOffset));
       tr.heading = Math.cos(s.t * 0.9 * k) * 0.08;
       tr.localWind = windAt(tr.y);
       tr.altitude = 3 + tr.y * 45;
