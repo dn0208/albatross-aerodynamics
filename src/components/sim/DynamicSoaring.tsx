@@ -22,6 +22,7 @@ type Craft = {
 type DSState = {
   t: number;
   cycleSpeed: number;
+  altitudeOffset: number;
   ds: Craft;
   trad: Craft;
   history: { t: number; ds: number; trad: number }[];
