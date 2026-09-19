@@ -302,16 +302,19 @@ function EnergyGraph({ sim }: { sim: React.RefObject<DSState> }) {
 export default function DynamicSoaring() {
   const [running, setRunning] = useState(true);
   const [cycleSpeed, setCycleSpeed] = useState(100);
+  const [altitude, setAltitude] = useState(0);
   const [, force] = useState(0);
 
   const sim = useRef<DSState>({
     t: 0,
     cycleSpeed: 1,
+    altitudeOffset: 0,
     ds: newCraft("Climb"),
     trad: newCraft("Climb"),
     history: [],
   });
   sim.current.cycleSpeed = cycleSpeed / 100;
+  sim.current.altitudeOffset = altitude;
 
   useEffect(() => {
     let raf = 0;
