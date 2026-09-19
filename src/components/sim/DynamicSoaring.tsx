@@ -342,7 +342,7 @@ export default function DynamicSoaring() {
       ds.localWind = windAt(ds.y);
       ds.altitude = 3 + ds.y * 45;
       const crossing = Math.abs(dyn) * (1 - Math.abs(ds.y - 0.5) * 1.2);
-      const gain = Math.max(0, crossing) * (UPPER_WIND - LOWER_WIND) * 0.32 * k;
+      const gain = Math.max(0, crossing) * (UPPER_WIND - LOWER_WIND) * 0.5 * k;
       const drag = 1.25 * k;
       ds.airspeed = 16 + Math.max(0, crossing) * 18 + (ds.y > 0.5 ? 4 : 0);
       ds.gaining = gain > drag;
@@ -448,7 +448,7 @@ export default function DynamicSoaring() {
           <div className="col-span-2">
             <DataCard
               label="Energy Gained from the Wind"
-              value={c.energy.toFixed(1)}
+              value={(Math.abs(c.energy) < 0.05 ? 0 : c.energy).toFixed(1)}
               unit="units"
               tone={c.energy > 0 ? "good" : "warn"}
               big
