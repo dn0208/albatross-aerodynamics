@@ -393,6 +393,7 @@ export default function DynamicSoaring() {
     sim.current.trad = newCraft("Climb");
     sim.current.history = [];
     setCycleSpeed(100);
+    setAltitude(0);
     setRunning(true);
   };
 
