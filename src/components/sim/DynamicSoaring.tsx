@@ -22,6 +22,7 @@ type Craft = {
 type DSState = {
   t: number;
   cycleSpeed: number;
+  altitudeOffset: number;
   ds: Craft;
   trad: Craft;
   history: { t: number; ds: number; trad: number }[];
@@ -302,16 +303,19 @@ function EnergyGraph({ sim }: { sim: React.RefObject<DSState> }) {
 export default function DynamicSoaring() {
   const [running, setRunning] = useState(true);
   const [cycleSpeed, setCycleSpeed] = useState(100);
+  const [altitude, setAltitude] = useState(0);
   const [, force] = useState(0);
 
   const sim = useRef<DSState>({
     t: 0,
     cycleSpeed: 1,
+    altitudeOffset: 0,
     ds: newCraft("Climb"),
     trad: newCraft("Climb"),
     history: [],
   });
   sim.current.cycleSpeed = cycleSpeed / 100;
+  sim.current.altitudeOffset = altitude;
 
   useEffect(() => {
     let raf = 0;
@@ -327,6 +331,7 @@ export default function DynamicSoaring() {
       if (!running) return;
       s.t += dt;
       const k = s.cycleSpeed;
+      const yOffset = s.altitudeOffset / 45;
 
       // --- Albatross-inspired: dynamic soaring cycle ---
       const period = 8 / k;
@@ -335,7 +340,7 @@ export default function DynamicSoaring() {
       const stageIndex = Math.floor(phase * 4);
       ds.stage = STAGES[stageIndex]!;
       // vertical: sinusoidal between 0.12 and 0.88, horizontal: figure sweep
-      ds.y = 0.5 - 0.38 * Math.cos(phase * Math.PI * 2);
+      ds.y = Math.max(0.05, Math.min(0.95, 0.5 - 0.38 * Math.cos(phase * Math.PI * 2) + yOffset));
       ds.x = 0.5 + 0.34 * Math.sin(phase * Math.PI * 2);
       const dyn = Math.sin(phase * Math.PI * 2);
       ds.heading = -dyn * 0.9 + (ds.stage.includes("Turn") ? 0.2 : 0);
@@ -353,7 +358,7 @@ export default function DynamicSoaring() {
       // --- Traditional: level cruise inside the lower layer ---
       const tr = s.trad;
       tr.x = (0.08 + ((s.t * 0.12 * k) % 1) * 0.9) % 1;
-      tr.y = 0.3 + Math.sin(s.t * 0.9 * k) * 0.03;
+      tr.y = Math.max(0.05, Math.min(0.95, 0.3 + Math.sin(s.t * 0.9 * k) * 0.03 + yOffset));
       tr.heading = Math.cos(s.t * 0.9 * k) * 0.08;
       tr.localWind = windAt(tr.y);
       tr.altitude = 3 + tr.y * 45;
@@ -388,6 +393,7 @@ export default function DynamicSoaring() {
     sim.current.trad = newCraft("Climb");
     sim.current.history = [];
     setCycleSpeed(100);
+    setAltitude(0);
     setRunning(true);
   };
 
@@ -462,7 +468,7 @@ export default function DynamicSoaring() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <Panel className="p-4 sm:p-5">
-        <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
           <Slider
             label="Cycle Speed"
             value={cycleSpeed}
@@ -470,6 +476,15 @@ export default function DynamicSoaring() {
             max={180}
             unit="%"
             onChange={setCycleSpeed}
+          />
+          <Slider
+            label="Altitude Offset"
+            value={altitude}
+            min={0}
+            max={40}
+            step={1}
+            unit="m"
+            onChange={setAltitude}
           />
           <div className="flex flex-wrap gap-2">
             <ActionButton
