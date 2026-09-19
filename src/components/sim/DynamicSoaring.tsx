@@ -468,7 +468,7 @@ export default function DynamicSoaring() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <Panel className="p-4 sm:p-5">
-        <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
           <Slider
             label="Cycle Speed"
             value={cycleSpeed}
@@ -476,6 +476,15 @@ export default function DynamicSoaring() {
             max={180}
             unit="%"
             onChange={setCycleSpeed}
+          />
+          <Slider
+            label="Altitude Offset"
+            value={altitude}
+            min={0}
+            max={40}
+            step={1}
+            unit="m"
+            onChange={setAltitude}
           />
           <div className="flex flex-wrap gap-2">
             <ActionButton
