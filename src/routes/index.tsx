@@ -374,14 +374,16 @@ function Team() {
       </Panel>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {TEAM.map((member) => (
-          <Panel key={member.roll} className="p-5 text-center">
+          <Panel key={member.roll} className="overflow-hidden p-0">
             <Base64Image
               path={member.image}
               alt={member.name}
-              className="mx-auto h-24 w-24 rounded-full border-2 border-primary/40 object-cover object-top shadow-[0_0_20px_oklch(0.8_0.14_200/20%)] sm:h-28 sm:w-28"
+              className="aspect-[4/5] w-full object-cover object-top"
             />
-            <div className="mt-4 font-display text-lg font-bold">{member.name}</div>
-            <div className="tech-label mt-1 text-xs text-accent">{member.roll}</div>
+            <div className="p-4 text-center">
+              <div className="font-display text-lg font-bold">{member.name}</div>
+              <div className="tech-label mt-1 text-xs text-accent">{member.roll}</div>
+            </div>
           </Panel>
         ))}
       </div>
