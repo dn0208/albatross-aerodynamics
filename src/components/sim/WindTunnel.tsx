@@ -253,6 +253,20 @@ function TunnelCanvas({
         ctx.stroke();
       }
 
+      // Stable reference marker behind the aircraft makes fuselage movement
+      // easy to compare between the rigid and flexible designs.
+      ctx.save();
+      ctx.strokeStyle = "rgba(170,210,225,0.16)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath();
+      ctx.moveTo(w / 2 - 24, h * 0.56);
+      ctx.lineTo(w / 2 + 24, h * 0.56);
+      ctx.moveTo(w / 2, h * 0.56 - 24);
+      ctx.lineTo(w / 2, h * 0.56 + 24);
+      ctx.stroke();
+      ctx.restore();
+
       // Label the steady main flow separately from the vertical gust.
       ctx.fillStyle = "rgba(130,235,255,0.9)";
       ctx.font = "600 10px Inter, sans-serif";
@@ -298,12 +312,36 @@ function TunnelCanvas({
         ctx.fillText("VERTICAL GUST ↑", 12, Math.max(14, frontPx - 8));
       }
 
+      const visualShake =
+        kind === "rigid"
+          ? Math.min(1.35, m.shake * 1.35)
+          : Math.min(0.55, m.shake * 0.42);
+
       drawAircraft(ctx, w, h, {
         deflection: m.deflection,
-        shake: m.shake,
+        shake: visualShake,
         accent,
         time: s.t,
       });
+
+      // Presentation cue: show the audience why the second fuselage looks steadier.
+      const shakeActive = s.phase === "impact" || s.phase === "recovering";
+      ctx.font = "700 11px Inter, sans-serif";
+      ctx.fillStyle =
+        kind === "flex"
+          ? "rgba(90,235,215,0.96)"
+          : "rgba(255,190,110,0.96)";
+      ctx.fillText(
+        shakeActive
+          ? kind === "flex"
+            ? "STEADIER FUSELAGE • LESS VIBRATION"
+            : "MORE FUSELAGE SHAKE"
+          : kind === "flex"
+            ? "FLEXIBLE TIPS • FUSELAGE STAYS STEADIER"
+            : "RIGID TIPS • MORE LOAD REACHES FUSELAGE",
+        12,
+        h - 14,
+      );
     };
     loop();
 
@@ -633,8 +671,9 @@ export default function WindTunnel() {
           orange vertical gust rises from below. “Current Gust at Aircraft” increases only
           when that upward gust reaches the wings. The gust reaches both aircraft at the
           same moment, then passes and the aircraft settle. The rigid wingtip barely moves,
-          so more of the temporary load reaches the wing root; the hinged tip deflects
-          smoothly and relieves part of the peak load.
+          so more of the temporary load reaches the wing root and the first fuselage visibly
+          shakes more. The hinged tip deflects smoothly, relieves part of the peak load, and
+          the second fuselage remains noticeably steadier with less visible vibration.
         </Note>
         <Note>
           <span className="mt-2 block opacity-80">
