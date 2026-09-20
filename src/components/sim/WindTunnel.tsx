@@ -36,7 +36,7 @@ function emptyMetrics(): TunnelMetrics {
   return { deflection: 0, load: 0, stress: 0, shake: 0, gust: 0 };
 }
 
-/** Front-view aircraft rendered with shaded polygons for a 3D-like look. */
+/** Rear, slightly elevated aircraft view rendered with shaded polygons for a 3D-like look. */
 function drawAircraft(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -44,104 +44,125 @@ function drawAircraft(
   opts: { deflection: number; shake: number; accent: string; time: number },
 ) {
   const { deflection, shake, accent, time } = opts;
-  const cx = w / 2 + Math.sin(time * 37) * shake * 6;
-  const cy = h / 2 + Math.cos(time * 53) * shake * 4;
-  const roll = Math.sin(time * 29) * shake * 0.03;
 
-  const span = Math.min(w * 0.38, 240);
-  const innerSpan = span * 0.62;
-  const chordIn = Math.max(10, h * 0.055);
-  const chordOut = chordIn * 0.62;
+  // Rear, slightly elevated camera: fuselage points away from the viewer,
+  // both wings are fully visible, and the outer tips can be compared clearly.
+  const cx = w / 2 + Math.sin(time * 37) * shake * 5.5;
+  const cy = h * 0.56 + Math.cos(time * 53) * shake * 3.3;
+  const roll = Math.sin(time * 29) * shake * 0.024;
+
+  const span = Math.min(w * 0.4, 245);
+  const innerSpan = span * 0.63;
+  const rootChord = Math.max(14, h * 0.07);
+  const tipChord = rootChord * 0.52;
+  const perspectiveRise = h * 0.055;
 
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(roll);
 
-  // vertical tail (farther back, smaller in front view)
-  ctx.fillStyle = "rgba(120,190,215,0.35)";
+  // Far nose / fuselage axis (away from camera).
+  ctx.fillStyle = "rgba(95,145,175,0.78)";
   ctx.beginPath();
-  ctx.moveTo(-5, -h * 0.2);
-  ctx.lineTo(0, -h * 0.3);
-  ctx.lineTo(5, -h * 0.2);
+  ctx.moveTo(-rootChord * 0.28, -h * 0.24);
+  ctx.lineTo(rootChord * 0.28, -h * 0.24);
+  ctx.lineTo(rootChord * 0.55, rootChord * 0.5);
+  ctx.lineTo(-rootChord * 0.55, rootChord * 0.5);
   ctx.closePath();
   ctx.fill();
 
   const wing = (dir: 1 | -1) => {
-    // inner wing panel — slight elastic bend follows a fraction of the tip motion
-    const bend = (-dir * deflection * Math.PI) / 180;
+    const tipAngle = (-dir * deflection * Math.PI) / 180;
+
+    // Main wing panel: mostly rigid, with only a tiny elastic response.
     ctx.save();
-    ctx.rotate(bend * 0.12);
-    const grad = ctx.createLinearGradient(0, chordIn, 0, -chordIn);
-    grad.addColorStop(0, "rgba(60,95,125,0.95)");
-    grad.addColorStop(0.5, "rgba(150,190,214,0.9)");
-    grad.addColorStop(1, "rgba(226,246,255,0.95)");
-    ctx.fillStyle = grad;
+    ctx.rotate(tipAngle * 0.08);
+    const wingGrad = ctx.createLinearGradient(0, -rootChord, 0, rootChord);
+    wingGrad.addColorStop(0, "rgba(225,245,252,0.95)");
+    wingGrad.addColorStop(0.48, "rgba(145,188,210,0.94)");
+    wingGrad.addColorStop(1, "rgba(55,90,118,0.98)");
+    ctx.fillStyle = wingGrad;
     ctx.beginPath();
-    ctx.moveTo(0, chordIn * 0.5);
-    ctx.lineTo(dir * innerSpan, chordOut * 0.6);
-    ctx.lineTo(dir * innerSpan, -chordOut * 0.6);
-    ctx.lineTo(0, -chordIn * 0.5);
+    ctx.moveTo(dir * rootChord * 0.35, -rootChord * 0.45);
+    ctx.lineTo(dir * innerSpan, -tipChord * 0.45 - perspectiveRise);
+    ctx.lineTo(dir * innerSpan, tipChord * 0.65 - perspectiveRise);
+    ctx.lineTo(dir * rootChord * 0.45, rootChord * 0.7);
     ctx.closePath();
     ctx.fill();
 
-    // hinged / rigid outer tip
+    // Outer tip hinged at innerSpan. Rotation is visually exaggerated only by
+    // perspective, not by changing the actual simulated angle.
     ctx.save();
-    ctx.translate(dir * innerSpan, 0);
-    ctx.rotate(bend);
-    const tipGrad = ctx.createLinearGradient(0, chordOut, 0, -chordOut);
-    tipGrad.addColorStop(0, "rgba(30,60,90,0.95)");
-    tipGrad.addColorStop(1, accent);
+    ctx.translate(dir * innerSpan, -perspectiveRise);
+    ctx.rotate(tipAngle);
+    const tipGrad = ctx.createLinearGradient(0, -tipChord, 0, tipChord);
+    tipGrad.addColorStop(0, "rgba(220,245,252,0.96)");
+    tipGrad.addColorStop(0.55, accent);
+    tipGrad.addColorStop(1, "rgba(35,72,100,0.98)");
     ctx.fillStyle = tipGrad;
     ctx.beginPath();
-    ctx.moveTo(0, chordOut * 0.6);
-    ctx.lineTo(dir * (span - innerSpan), chordOut * 0.3);
-    ctx.lineTo(dir * (span - innerSpan), -chordOut * 0.3);
-    ctx.lineTo(0, -chordOut * 0.6);
+    ctx.moveTo(0, -tipChord * 0.45);
+    ctx.lineTo(dir * (span - innerSpan), -tipChord * 0.22);
+    ctx.lineTo(dir * (span - innerSpan), tipChord * 0.28);
+    ctx.lineTo(0, tipChord * 0.62);
     ctx.closePath();
     ctx.fill();
+
+    // Small upward face on the tip makes deflection readable from the rear.
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.55;
+    ctx.fillRect(dir > 0 ? (span - innerSpan) - 2 : -(span - innerSpan), -tipChord * 0.18, dir > 0 ? 2 : -2, tipChord * 0.36);
+    ctx.globalAlpha = 1;
     ctx.restore();
 
-    // hinge marker
+    // Hinge marker.
     ctx.fillStyle = accent;
     ctx.beginPath();
-    ctx.arc(dir * innerSpan, 0, 3.2, 0, Math.PI * 2);
+    ctx.arc(dir * innerSpan, -perspectiveRise, 3.5, 0, Math.PI * 2);
     ctx.fill();
+
     ctx.restore();
   };
 
-  wing(1);
   wing(-1);
+  wing(1);
 
-  // fuselage (front view)
-  const fGrad = ctx.createRadialGradient(0, chordIn * 0.6, 2, 0, 0, chordIn * 1.6);
-  fGrad.addColorStop(0, "rgba(240,252,255,0.98)");
-  fGrad.addColorStop(0.55, "rgba(120,160,195,0.9)");
-  fGrad.addColorStop(1, "rgba(45,80,110,1)");
-  ctx.fillStyle = fGrad;
+  // Rear fuselage / tail cone nearest to the viewer.
+  const bodyGrad = ctx.createRadialGradient(0, rootChord * 0.25, 2, 0, rootChord * 0.25, rootChord * 1.3);
+  bodyGrad.addColorStop(0, "rgba(225,247,253,0.98)");
+  bodyGrad.addColorStop(0.6, "rgba(115,160,190,0.95)");
+  bodyGrad.addColorStop(1, "rgba(40,72,100,1)");
+  ctx.fillStyle = bodyGrad;
   ctx.beginPath();
-  ctx.ellipse(0, 0, chordIn * 0.95, chordIn * 1.05, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, rootChord * 0.35, rootChord * 0.68, rootChord * 0.82, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = "rgba(160,225,245,0.7)";
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
 
-  // nose cone pointing toward viewer
-  ctx.fillStyle = "rgba(200,245,255,0.9)";
+  // Vertical tail viewed from behind.
+  ctx.fillStyle = "rgba(135,205,225,0.75)";
   ctx.beginPath();
-  ctx.moveTo(-chordIn * 0.45, chordIn * 0.7);
-  ctx.quadraticCurveTo(0, chordIn * 1.55, chordIn * 0.45, chordIn * 0.7);
-  ctx.lineTo(chordIn * 0.35, chordIn * 0.5);
-  ctx.quadraticCurveTo(0, chordIn * 1.05, -chordIn * 0.35, chordIn * 0.5);
+  ctx.moveTo(-rootChord * 0.12, rootChord * 0.15);
+  ctx.lineTo(0, -rootChord * 1.55);
+  ctx.lineTo(rootChord * 0.15, rootChord * 0.18);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = "rgba(160,225,245,0.7)";
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
 
-  // nose / front glare
-  ctx.fillStyle = "rgba(120,235,255,0.55)";
+  // Horizontal stabilizers.
+  ctx.fillStyle = "rgba(115,185,210,0.72)";
   ctx.beginPath();
-  ctx.arc(0, chordIn * 0.95, chordIn * 0.32, 0, Math.PI * 2);
+  ctx.moveTo(-rootChord * 0.2, rootChord * 0.25);
+  ctx.lineTo(-rootChord * 1.35, rootChord * 0.55);
+  ctx.lineTo(-rootChord * 1.15, rootChord * 0.78);
+  ctx.lineTo(0, rootChord * 0.5);
+  ctx.lineTo(rootChord * 1.15, rootChord * 0.78);
+  ctx.lineTo(rootChord * 1.35, rootChord * 0.55);
+  ctx.lineTo(rootChord * 0.2, rootChord * 0.25);
+  ctx.closePath();
+  ctx.fill();
+
+  // Rear exhaust / tail opening confirms that the viewer is behind the aircraft.
+  ctx.fillStyle = "rgba(15,35,52,0.95)";
+  ctx.beginPath();
+  ctx.ellipse(0, rootChord * 0.48, rootChord * 0.2, rootChord * 0.25, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
@@ -398,8 +419,7 @@ export default function WindTunnel() {
       s.flex = flex;
       if (s.eventActive) {
         s.peakRigid = Math.max(s.peakRigid, rigidLoad);
-        s.peakFlex = s.peakRigid === rigidLoad ? flexLoad : s.peakFlex;
-        if (flexLoad > s.peakFlex && rigidLoad >= s.peakRigid) s.peakFlex = flexLoad;
+        s.peakFlex = Math.max(s.peakFlex, flexLoad);
       }
 
       acc += dt;
@@ -452,8 +472,9 @@ export default function WindTunnel() {
   const cards = (m: TunnelMetrics, flex: boolean) => (
     <div className="grid grid-cols-2 gap-2 sm:gap-3">
       <DataCard label="Wind Speed" value={windSpeed.toFixed(0)} unit="m/s" />
+      <DataCard label="Gust Intensity (target)" value={gustIntensity.toFixed(0)} unit="%" />
       <DataCard
-        label="Effective Gust at Aircraft"
+        label="Current Gust at Aircraft"
         value={(m.gust * 100).toFixed(0)}
         unit="%"
       />
@@ -469,14 +490,12 @@ export default function WindTunnel() {
         unit="kN"
         tone={flex ? "good" : "warn"}
       />
-      <div className="col-span-2">
-        <DataCard
-          label="Structural Stress"
+      <DataCard
+        label="Structural Stress"
           value={m.stress.toFixed(0)}
           unit="MPa"
           tone={flex ? "good" : "warn"}
         />
-      </div>
       {flex ? (
         <div className="col-span-2">
           <DataCard
@@ -560,7 +579,7 @@ export default function WindTunnel() {
                     {flex ? "Albatross-Inspired Aircraft" : "Traditional Aircraft"}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    {flex ? "Hinged / flexible wingtips" : "Rigid / non-hinged wingtips"}
+                    {flex ? "Rear view • hinged / flexible wingtips" : "Rear view • rigid / non-hinged wingtips"}
                   </p>
                 </div>
                 <span
@@ -585,9 +604,10 @@ export default function WindTunnel() {
       <Panel className="p-4 sm:p-5">
         <h4 className="tech-label mb-2 text-xs text-primary">Why it matters</h4>
         <Note>
-          Both aircraft face exactly the same wind speed and the same gust event. The
-          gust front travels up the tunnel, hits both wings at the same moment, then
-          passes and the aircraft settle. The rigid wingtip barely moves, so the gust
+          Both aircraft face exactly the same wind speed and the same target gust.
+          “Current Gust at Aircraft” rises only when the animated gust front reaches the
+          wings, so the audience can see the event approach, impact, pass and recovery.
+          The gust front reaches both aircraft at the same moment, then the aircraft settle. The rigid wingtip barely moves, so the gust
           energy goes straight into the wing root as a higher load, higher stress and
           more fuselage shake. The hinged tip deflects smoothly instead, relieving part
           of that peak load.
