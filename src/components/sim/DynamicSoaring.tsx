@@ -15,6 +15,8 @@ const PATH_STYLES: Record<
   aggressive: { label: "Aggressive", amplitude: 0.47, efficiency: 0.88, dragMultiplier: 1.55 },
 };
 
+type EnergyState = "gain" | "loss" | "neutral";
+
 type Craft = {
   x: number;
   y: number; // 0 = sea level, 1 = top of scene
@@ -23,7 +25,8 @@ type Craft = {
   altitude: number;
   localWind: number;
   energy: number;
-  gaining: boolean;
+  energyRate: number;
+  state: EnergyState;
   stage: Stage;
   trail: { x: number; y: number }[];
 };
