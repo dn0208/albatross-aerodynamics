@@ -22,7 +22,7 @@ function emptyMetrics(): TunnelMetrics {
   return { deflection: 0, load: 0, stress: 0, shake: 0, gust: 0 };
 }
 
-/** Rear-view aircraft rendered with shaded polygons for a 3D-like look. */
+/** Front-view aircraft rendered with shaded polygons for a 3D-like look. */
 function drawAircraft(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -43,27 +43,27 @@ function drawAircraft(
   ctx.translate(cx, cy);
   ctx.rotate(roll);
 
-  // vertical tail
+  // vertical tail (farther back, smaller in front view)
   ctx.fillStyle = "rgba(120,190,215,0.35)";
   ctx.beginPath();
-  ctx.moveTo(-6, -chordIn * 0.4);
-  ctx.lineTo(0, -h * 0.22);
-  ctx.lineTo(6, -chordIn * 0.4);
+  ctx.moveTo(-5, -h * 0.20);
+  ctx.lineTo(0, -h * 0.30);
+  ctx.lineTo(5, -h * 0.20);
   ctx.closePath();
   ctx.fill();
 
   const wing = (dir: 1 | -1) => {
     // inner wing panel
-    const grad = ctx.createLinearGradient(0, -chordIn, 0, chordIn);
-    grad.addColorStop(0, "rgba(226,246,255,0.95)");
+    const grad = ctx.createLinearGradient(0, chordIn, 0, -chordIn);
+    grad.addColorStop(0, "rgba(60,95,125,0.95)");
     grad.addColorStop(0.5, "rgba(150,190,214,0.9)");
-    grad.addColorStop(1, "rgba(60,95,125,0.95)");
+    grad.addColorStop(1, "rgba(226,246,255,0.95)");
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.moveTo(0, -chordIn * 0.5);
-    ctx.lineTo(dir * innerSpan, -chordOut * 0.6);
+    ctx.moveTo(0, chordIn * 0.5);
     ctx.lineTo(dir * innerSpan, chordOut * 0.6);
-    ctx.lineTo(0, chordIn * 0.5);
+    ctx.lineTo(dir * innerSpan, -chordOut * 0.6);
+    ctx.lineTo(0, -chordIn * 0.5);
     ctx.closePath();
     ctx.fill();
 
@@ -71,15 +71,15 @@ function drawAircraft(
     ctx.save();
     ctx.translate(dir * innerSpan, 0);
     ctx.rotate((-dir * deflection * Math.PI) / 180);
-    const tipGrad = ctx.createLinearGradient(0, -chordOut, 0, chordOut);
-    tipGrad.addColorStop(0, accent);
-    tipGrad.addColorStop(1, "rgba(30,60,90,0.95)");
+    const tipGrad = ctx.createLinearGradient(0, chordOut, 0, -chordOut);
+    tipGrad.addColorStop(0, "rgba(30,60,90,0.95)");
+    tipGrad.addColorStop(1, accent);
     ctx.fillStyle = tipGrad;
     ctx.beginPath();
-    ctx.moveTo(0, -chordOut * 0.6);
-    ctx.lineTo(dir * (span - innerSpan), -chordOut * 0.3);
+    ctx.moveTo(0, chordOut * 0.6);
     ctx.lineTo(dir * (span - innerSpan), chordOut * 0.3);
-    ctx.lineTo(0, chordOut * 0.6);
+    ctx.lineTo(dir * (span - innerSpan), -chordOut * 0.3);
+    ctx.lineTo(0, -chordOut * 0.6);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -94,9 +94,10 @@ function drawAircraft(
   wing(1);
   wing(-1);
 
-  // fuselage (rear view)
-  const fGrad = ctx.createRadialGradient(-6, -8, 2, 0, 0, chordIn * 1.5);
+  // fuselage (front view)
+  const fGrad = ctx.createRadialGradient(0, chordIn * 0.6, 2, 0, 0, chordIn * 1.6);
   fGrad.addColorStop(0, "rgba(240,252,255,0.98)");
+  fGrad.addColorStop(0.55, "rgba(120,160,195,0.9)");
   fGrad.addColorStop(1, "rgba(45,80,110,1)");
   ctx.fillStyle = fGrad;
   ctx.beginPath();
@@ -106,10 +107,23 @@ function drawAircraft(
   ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  // engine glow
+  // nose cone pointing toward viewer
+  ctx.fillStyle = "rgba(200,245,255,0.9)";
+  ctx.beginPath();
+  ctx.moveTo(-chordIn * 0.45, chordIn * 0.7);
+  ctx.quadraticCurveTo(0, chordIn * 1.55, chordIn * 0.45, chordIn * 0.7);
+  ctx.lineTo(chordIn * 0.35, chordIn * 0.5);
+  ctx.quadraticCurveTo(0, chordIn * 1.05, -chordIn * 0.35, chordIn * 0.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(160,225,245,0.7)";
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // nose / front glare
   ctx.fillStyle = "rgba(120,235,255,0.55)";
   ctx.beginPath();
-  ctx.arc(0, 0, chordIn * 0.42, 0, Math.PI * 2);
+  ctx.arc(0, chordIn * 0.95, chordIn * 0.32, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
