@@ -610,13 +610,19 @@ export default function DynamicSoaring() {
               <DataCard label="Altitude" value={ds.altitude.toFixed(1)} unit="m" />
               <DataCard label="Local Wind Speed" value={ds.localWind.toFixed(1)} unit="m/s" />
               <DataCard label="Wind-Speed Difference" value={gradient.toFixed(0)} unit="m/s" />
-              <div className="col-span-2">
+              <div className="col-span-2 space-y-2 sm:space-y-3">
                 <DataCard
-                  label="Energy Gained from Wind"
+                  label="Net Flight Energy"
                   value={(Math.abs(ds.energy) < 0.05 ? 0 : ds.energy).toFixed(1)}
                   unit="units"
                   tone={ds.energy > 0 ? "good" : "warn"}
                   big
+                />
+                <DataCard
+                  label="Energy Change"
+                  value={`${ds.energyRate >= 0 ? "+" : "\u2212"}${Math.abs(ds.energyRate).toFixed(1)}`}
+                  unit="units/s"
+                  tone={ds.state === "gain" ? "good" : ds.state === "loss" ? "warn" : "default"}
                 />
               </div>
             </div>
