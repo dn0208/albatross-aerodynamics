@@ -4,15 +4,10 @@ import { ActionButton, DataCard, Note, Panel, Slider } from "./ui";
 const STAGES = ["Climb", "Top Turn", "Descend", "Bottom Turn"] as const;
 type Stage = (typeof STAGES)[number];
 
-type PathStyle = "gentle" | "optimal" | "aggressive";
-
-const PATH_STYLES: Record<
-  PathStyle,
-  { label: string; amplitude: number; efficiency: number; dragMultiplier: number }
-> = {
-  gentle: { label: "Gentle", amplitude: 0.26, efficiency: 0.72, dragMultiplier: 0.92 },
-  optimal: { label: "Optimal", amplitude: 0.38, efficiency: 1.0, dragMultiplier: 1.15 },
-  aggressive: { label: "Aggressive", amplitude: 0.47, efficiency: 0.88, dragMultiplier: 1.55 },
+const SOARING_PATH = {
+  amplitude: 0.38,
+  efficiency: 1.0,
+  dragMultiplier: 1.15,
 };
 
 type EnergyState = "gain" | "loss" | "neutral";
@@ -36,7 +31,6 @@ type DSState = {
   cycleSpeed: number;
   lowerWind: number;
   upperWind: number;
-  pathStyle: PathStyle;
   ds: Craft;
   history: { t: number; ds: number }[];
 };
@@ -72,7 +66,6 @@ function drawScene(
   craft: Craft,
   lowerWind: number,
   upperWind: number,
-  pathStyle: PathStyle,
   t: number,
 ) {
   ctx.clearRect(0, 0, w, h);
@@ -180,7 +173,7 @@ function drawScene(
   ctx.fillText(`Lower Layer  ${lowerWind.toFixed(0)} m/s`, 10, toPx(0.2));
 
   // numbered stage markers make the cycle readable from across a room
-  const cfg = PATH_STYLES[pathStyle];
+  const cfg = SOARING_PATH;
   const stagePoints = [
     { phase: 0.125, label: "1", name: "CLIMB" },
     { phase: 0.375, label: "2", name: "TOP TURN" },
@@ -345,7 +338,7 @@ function SceneCanvas({ sim }: { sim: React.RefObject<DSState> }) {
     const loop = () => {
       raf = requestAnimationFrame(loop);
       const s = sim.current;
-      drawScene(ctx, w, h, s.ds, s.lowerWind, s.upperWind, s.pathStyle, s.t);
+      drawScene(ctx, w, h, s.ds, s.lowerWind, s.upperWind, s.t);
     };
     loop();
     return () => {
@@ -426,7 +419,6 @@ export default function DynamicSoaring() {
   const [running, setRunning] = useState(true);
   const [lowerWind, setLowerWind] = useState(7);
   const [upperWind, setUpperWind] = useState(22);
-  const [pathStyle, setPathStyle] = useState<PathStyle>("optimal");
   const [explanationMode, setExplanationMode] = useState(false);
   const [, force] = useState(0);
 
@@ -435,14 +427,12 @@ export default function DynamicSoaring() {
     cycleSpeed: 1,
     lowerWind: 7,
     upperWind: 22,
-    pathStyle: "optimal",
     ds: newCraft("Climb"),
     history: [],
   });
 
   sim.current.lowerWind = lowerWind;
   sim.current.upperWind = upperWind;
-  sim.current.pathStyle = pathStyle;
   sim.current.cycleSpeed = explanationMode ? 0.6 : 1;
 
   useEffect(() => {
@@ -459,7 +449,7 @@ export default function DynamicSoaring() {
       if (!running) return;
       s.t += dt;
       const k = s.cycleSpeed;
-      const cfg = PATH_STYLES[s.pathStyle];
+      const cfg = SOARING_PATH;
       const windDiff = s.upperWind - s.lowerWind;
 
       // --- Albatross-inspired: dynamic soaring cycle ---
@@ -527,7 +517,6 @@ export default function DynamicSoaring() {
     sim.current.history = [];
     setLowerWind(7);
     setUpperWind(22);
-    setPathStyle("optimal");
     setExplanationMode(false);
     setRunning(true);
   };
@@ -683,25 +672,6 @@ export default function DynamicSoaring() {
                 unit="m/s"
                 onChange={updateUpperWind}
               />
-              <div>
-                <div className="tech-label mb-2 text-xs text-muted-foreground">Soaring Path / Turn Style</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(Object.keys(PATH_STYLES) as PathStyle[]).map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setPathStyle(key)}
-                      className={`tech-label min-h-[44px] rounded-xl px-2 text-[10px] font-semibold transition-all sm:text-xs ${
-                        pathStyle === key
-                          ? "bg-primary text-primary-foreground shadow-[0_0_20px_oklch(0.8_0.14_200/40%)]"
-                          : "border border-border text-foreground hover:bg-secondary"
-                      }`}
-                    >
-                      {PATH_STYLES[key].label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </Panel>
 
@@ -728,14 +698,6 @@ export default function DynamicSoaring() {
                 unit="units/s"
                 tone={ds.state === "gain" ? "good" : ds.state === "loss" ? "warn" : "default"}
               />
-              <div className="col-span-2">
-                <DataCard
-                  label="Net Flight Energy"
-                  value={(Math.abs(ds.energy) < 0.05 ? 0 : ds.energy).toFixed(1)}
-                  unit="units"
-                  tone={ds.energy > 0 ? "good" : "warn"}
-                />
-              </div>
             </div>
           </Panel>
         </div>
@@ -744,7 +706,7 @@ export default function DynamicSoaring() {
       {/* Bottom Section: Energy Graph */}
       <Panel className="p-4 sm:p-5">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h4 className="tech-label text-xs text-primary">Net Flight Energy vs Time</h4>
+          <h4 className="tech-label text-xs text-primary">Energy Trend vs Time</h4>
           <div className="flex gap-4 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <i className="inline-block h-2 w-4 rounded bg-accent" /> Albatross-inspired
