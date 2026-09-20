@@ -130,12 +130,23 @@ function drawScene(
   drawArrows(0.62, upperWind, 3);
   drawArrows(0.08, lowerWind, 3);
 
-  // shear boundary
+  // shear band (a region, not an infinitely thin line)
   const by = toPx(0.5);
+  const bTop = toPx(0.5 + BAND_HALF);
+  const bBot = toPx(0.5 - BAND_HALF);
+  const band = ctx.createLinearGradient(0, bTop, 0, bBot);
+  band.addColorStop(0, "rgba(255,196,110,0.05)");
+  band.addColorStop(0.5, "rgba(255,196,110,0.16)");
+  band.addColorStop(1, "rgba(255,196,110,0.05)");
+  ctx.fillStyle = band;
+  ctx.fillRect(0, bTop, w, bBot - bTop);
+  ctx.strokeStyle = "rgba(255,200,120,0.28)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, bTop, w - 1, bBot - bTop);
   ctx.save();
-  ctx.setLineDash([10, 8]);
-  ctx.strokeStyle = "rgba(255,200,120,0.9)";
-  ctx.lineWidth = 2;
+  ctx.setLineDash([9, 9]);
+  ctx.strokeStyle = "rgba(255,205,130,0.45)";
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(0, by);
   ctx.lineTo(w, by);
@@ -143,7 +154,7 @@ function drawScene(
   ctx.restore();
   ctx.fillStyle = "rgba(255,210,140,0.95)";
   ctx.font = "600 10px Inter, sans-serif";
-  ctx.fillText("Wind Gradient / Wind Shear Zone", 10, by - 6);
+  ctx.fillText("WIND GRADIENT / WIND SHEAR ZONE", 10, bTop - 5);
 
   ctx.fillStyle = "rgba(190,235,255,0.9)";
   ctx.font = "600 11px Inter, sans-serif";
