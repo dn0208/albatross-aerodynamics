@@ -247,15 +247,21 @@ function drawScene(
 
   ctx.restore();
 
-  // energy indicator
+  // energy state indicator
   ctx.font = "700 12px Inter, sans-serif";
-  if (craft.gaining) {
-    ctx.fillStyle = "rgba(90,235,215,1)";
-    ctx.fillText("+ ENERGY", px + 18, py - 14);
-  } else {
-    ctx.fillStyle = "rgba(255,150,130,0.95)";
-    ctx.fillText("ENERGY LOSS", px + 18, py - 14);
-  }
+  const label =
+    craft.state === "gain"
+      ? "\u2191 ENERGY GAIN"
+      : craft.state === "loss"
+        ? "\u2193 ENERGY LOSS"
+        : "\u2022 NEUTRAL";
+  ctx.fillStyle =
+    craft.state === "gain"
+      ? "rgba(90,235,215,1)"
+      : craft.state === "loss"
+        ? "rgba(255,150,110,0.98)"
+        : "rgba(165,195,215,0.9)";
+  ctx.fillText(label, px + 18, py - 14);
 }
 
 function SceneCanvas({ sim }: { sim: React.RefObject<DSState> }) {
