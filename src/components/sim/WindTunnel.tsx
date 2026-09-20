@@ -45,8 +45,8 @@ function drawAircraft(
 ) {
   const { deflection, shake, accent, time } = opts;
 
-  // Rear, slightly elevated camera: fuselage points away from the viewer,
-  // both wings are fully visible, and the outer tips can be compared clearly.
+  // Rear, slightly elevated camera: fuselage points away from the viewer.
+  // Main wings are drawn straight across at rest so tip deflection is easy to compare.
   const cx = w / 2 + Math.sin(time * 37) * shake * 5.5;
   const cy = h * 0.56 + Math.cos(time * 53) * shake * 3.3;
   const roll = Math.sin(time * 29) * shake * 0.024;
@@ -55,7 +55,7 @@ function drawAircraft(
   const innerSpan = span * 0.63;
   const rootChord = Math.max(14, h * 0.07);
   const tipChord = rootChord * 0.52;
-  const perspectiveRise = h * 0.055;
+  const wingY = 0;
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -83,17 +83,17 @@ function drawAircraft(
     wingGrad.addColorStop(1, "rgba(55,90,118,0.98)");
     ctx.fillStyle = wingGrad;
     ctx.beginPath();
-    ctx.moveTo(dir * rootChord * 0.35, -rootChord * 0.45);
-    ctx.lineTo(dir * innerSpan, -tipChord * 0.45 - perspectiveRise);
-    ctx.lineTo(dir * innerSpan, tipChord * 0.65 - perspectiveRise);
-    ctx.lineTo(dir * rootChord * 0.45, rootChord * 0.7);
+    ctx.moveTo(dir * rootChord * 0.35, wingY - rootChord * 0.42);
+    ctx.lineTo(dir * innerSpan, wingY - tipChord * 0.42);
+    ctx.lineTo(dir * innerSpan, wingY + tipChord * 0.42);
+    ctx.lineTo(dir * rootChord * 0.35, wingY + rootChord * 0.42);
     ctx.closePath();
     ctx.fill();
 
     // Outer tip hinged at innerSpan. Rotation is visually exaggerated only by
     // perspective, not by changing the actual simulated angle.
     ctx.save();
-    ctx.translate(dir * innerSpan, -perspectiveRise);
+    ctx.translate(dir * innerSpan, wingY);
     ctx.rotate(tipAngle);
     const tipGrad = ctx.createLinearGradient(0, -tipChord, 0, tipChord);
     tipGrad.addColorStop(0, "rgba(220,245,252,0.96)");
@@ -101,10 +101,10 @@ function drawAircraft(
     tipGrad.addColorStop(1, "rgba(35,72,100,0.98)");
     ctx.fillStyle = tipGrad;
     ctx.beginPath();
-    ctx.moveTo(0, -tipChord * 0.45);
-    ctx.lineTo(dir * (span - innerSpan), -tipChord * 0.22);
-    ctx.lineTo(dir * (span - innerSpan), tipChord * 0.28);
-    ctx.lineTo(0, tipChord * 0.62);
+    ctx.moveTo(0, -tipChord * 0.42);
+    ctx.lineTo(dir * (span - innerSpan), -tipChord * 0.32);
+    ctx.lineTo(dir * (span - innerSpan), tipChord * 0.32);
+    ctx.lineTo(0, tipChord * 0.42);
     ctx.closePath();
     ctx.fill();
 
@@ -118,7 +118,7 @@ function drawAircraft(
     // Hinge marker.
     ctx.fillStyle = accent;
     ctx.beginPath();
-    ctx.arc(dir * innerSpan, -perspectiveRise, 3.5, 0, Math.PI * 2);
+    ctx.arc(dir * innerSpan, wingY, 3.5, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
