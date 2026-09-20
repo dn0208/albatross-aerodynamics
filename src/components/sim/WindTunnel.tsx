@@ -231,26 +231,45 @@ function TunnelCanvas({
       const frontPx = s.frontY * h;
       const bandH = h * 0.26;
 
-      // Main tunnel airflow: blue/cyan streaks move along the aircraft's
-      // flight direction (nose-to-tail in this rear perspective), NOT upward.
+      // Main tunnel airflow: cyan streaks move along the aircraft's longitudinal
+      // flight path. In this rear view the aircraft nose points toward the top of
+      // the canvas, so the main flow is drawn in that same on-screen direction.
       const speedPx = (s.windSpeed / 30) * 3.6;
+      const vanishX = w / 2;
       for (const p of parts) {
-        p.y += speedPx * p.v;
-        if (p.y > h + p.len) {
-          p.y = -p.len;
+        p.y -= speedPx * p.v;
+        if (p.y < -p.len) {
+          p.y = h + p.len;
           p.x = Math.random() * w;
         }
-        const xx = p.x + Math.sin((p.y + s.t * 90) * 0.015) * 1.2;
-        const len = p.len;
-        const g = ctx.createLinearGradient(xx, p.y - len, xx, p.y);
+
+        // Slight perspective convergence makes the flow read as travelling
+        // along the fuselage rather than as a vertical gust.
+        const depth = 1 - Math.max(0, Math.min(1, p.y / Math.max(1, h)));
+        const px = p.x + (vanishX - p.x) * depth * 0.18;
+        const wobble = Math.sin((p.y + s.t * 90) * 0.015) * 0.8;
+        const xx = px + wobble;
+        const len = p.len * (0.85 + depth * 0.25);
+
+        const g = ctx.createLinearGradient(xx, p.y + len, xx, p.y);
         g.addColorStop(0, "rgba(90,220,255,0)");
-        g.addColorStop(1, "rgba(120,235,255,0.42)");
+        g.addColorStop(1, "rgba(120,235,255,0.46)");
         ctx.strokeStyle = g;
         ctx.lineWidth = 1.4;
         ctx.beginPath();
-        ctx.moveTo(xx, p.y - len);
+        ctx.moveTo(xx, p.y + len);
         ctx.lineTo(xx, p.y);
         ctx.stroke();
+
+        // Small arrowhead confirms the direction of the main flow.
+        if (p.y > 18 && p.y < h - 18 && Math.round(p.x) % 3 === 0) {
+          ctx.beginPath();
+          ctx.moveTo(xx, p.y);
+          ctx.lineTo(xx - 3, p.y + 6);
+          ctx.moveTo(xx, p.y);
+          ctx.lineTo(xx + 3, p.y + 6);
+          ctx.stroke();
+        }
       }
 
       // Stable reference marker behind the aircraft makes fuselage movement
@@ -270,7 +289,7 @@ function TunnelCanvas({
       // Label the steady main flow separately from the vertical gust.
       ctx.fillStyle = "rgba(130,235,255,0.9)";
       ctx.font = "600 10px Inter, sans-serif";
-      ctx.fillText("MAIN AIRFLOW ↓", Math.max(12, w - 112), 18);
+      ctx.fillText("MAIN AIRFLOW ↑  ALONG FLIGHT PATH", Math.max(12, w - 206), 18);
 
       // Vertical gust: orange band and upward streaks rise from below.
       if (s.showFront) {
@@ -667,8 +686,9 @@ export default function WindTunnel() {
         <h4 className="tech-label mb-2 text-xs text-primary">Why it matters</h4>
         <Note>
           Both aircraft face exactly the same steady main airflow and the same target gust.
-          Cyan streaks show the normal tunnel airflow moving along the aircraft, while the
-          orange vertical gust rises from below. “Current Gust at Aircraft” increases only
+          Cyan streaks show the normal tunnel airflow moving along the aircraft's flight
+          path toward the nose in this rear-view diagram, while the orange vertical gust
+          rises from below. “Current Gust at Aircraft” increases only
           when that upward gust reaches the wings. The gust reaches both aircraft at the
           same moment, then passes and the aircraft settle. The rigid wingtip barely moves,
           so more of the temporary load reaches the wing root and the first fuselage visibly
