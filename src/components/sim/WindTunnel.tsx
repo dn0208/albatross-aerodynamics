@@ -45,17 +45,22 @@ function drawAircraft(
 ) {
   const { deflection, shake, accent, time } = opts;
 
-  // Rear view with an approximately 15° elevated camera.
-  // This keeps both wings fully visible while showing a small amount of the
-  // aircraft's upper surface, making wingtip deflection easier to read.
+  // Rear three-quarter view: ~15° elevated and ~12° off-center.
+  // The small azimuth offset makes wingtip motion, airflow direction,
+  // upward gust direction and fuselage vibration readable at the same time.
   const cameraElevationDeg = 15;
+  const cameraAzimuthDeg = 12;
   const elevation = cameraElevationDeg / 90;
-  const cx = w / 2 + Math.sin(time * 37) * shake * 5.5;
+  const azimuth = cameraAzimuthDeg / 90;
+  const viewOffsetX = w * azimuth * 0.12;
+  const cx = w / 2 + viewOffsetX + Math.sin(time * 37) * shake * 5.5;
   const cy = h * (0.57 + elevation * 0.02) + Math.cos(time * 53) * shake * 3.3;
   const roll = Math.sin(time * 29) * shake * 0.024;
 
   const span = Math.min(w * 0.4, 245);
   const innerSpan = span * 0.63;
+  const farWingScale = 0.92;
+  const nearWingScale = 1.06;
   const rootChord = Math.max(14, h * 0.07);
   const tipChord = rootChord * 0.52;
   const wingY = 0;
@@ -68,24 +73,27 @@ function drawAircraft(
   // wider near the tail, with a highlighted top surface.
   ctx.fillStyle = "rgba(88,138,170,0.82)";
   ctx.beginPath();
-  ctx.moveTo(-rootChord * 0.22, -h * 0.25);
-  ctx.lineTo(rootChord * 0.22, -h * 0.25);
-  ctx.lineTo(rootChord * 0.58, rootChord * 0.52);
-  ctx.lineTo(-rootChord * 0.58, rootChord * 0.52);
+  ctx.moveTo(-rootChord * 0.34, -h * 0.25);
+  ctx.lineTo(rootChord * 0.12, -h * 0.25);
+  ctx.lineTo(rootChord * 0.62, rootChord * 0.52);
+  ctx.lineTo(-rootChord * 0.52, rootChord * 0.52);
   ctx.closePath();
   ctx.fill();
 
   ctx.fillStyle = "rgba(185,225,240,0.42)";
   ctx.beginPath();
-  ctx.moveTo(0, -h * 0.245);
-  ctx.lineTo(rootChord * 0.34, rootChord * 0.45);
-  ctx.lineTo(0, rootChord * 0.25);
-  ctx.lineTo(-rootChord * 0.34, rootChord * 0.45);
+  ctx.moveTo(-rootChord * 0.08, -h * 0.245);
+  ctx.lineTo(rootChord * 0.38, rootChord * 0.44);
+  ctx.lineTo(-rootChord * 0.02, rootChord * 0.24);
+  ctx.lineTo(-rootChord * 0.38, rootChord * 0.43);
   ctx.closePath();
   ctx.fill();
 
   const wing = (dir: 1 | -1) => {
     const tipAngle = (-dir * deflection * Math.PI) / 180;
+    const sideScale = dir === 1 ? farWingScale : nearWingScale;
+    const sideInnerSpan = innerSpan * sideScale;
+    const sideSpan = span * sideScale;
 
     // Main wing panel: mostly rigid, with only a tiny elastic response.
     ctx.save();
@@ -97,8 +105,8 @@ function drawAircraft(
     ctx.fillStyle = wingGrad;
     ctx.beginPath();
     ctx.moveTo(dir * rootChord * 0.35, wingY - rootChord * 0.34);
-    ctx.lineTo(dir * innerSpan, wingY - tipChord * 0.30);
-    ctx.lineTo(dir * innerSpan, wingY + tipChord * 0.48);
+    ctx.lineTo(dir * sideInnerSpan, wingY - tipChord * 0.30);
+    ctx.lineTo(dir * sideInnerSpan, wingY + tipChord * 0.48);
     ctx.lineTo(dir * rootChord * 0.35, wingY + rootChord * 0.50);
     ctx.closePath();
     ctx.fill();
@@ -106,7 +114,7 @@ function drawAircraft(
     // Outer tip hinged at innerSpan. Rotation is visually exaggerated only by
     // perspective, not by changing the actual simulated angle.
     ctx.save();
-    ctx.translate(dir * innerSpan, wingY);
+    ctx.translate(dir * sideInnerSpan, wingY);
     ctx.rotate(tipAngle);
     const tipGrad = ctx.createLinearGradient(0, -tipChord, 0, tipChord);
     tipGrad.addColorStop(0, "rgba(220,245,252,0.96)");
@@ -115,8 +123,8 @@ function drawAircraft(
     ctx.fillStyle = tipGrad;
     ctx.beginPath();
     ctx.moveTo(0, -tipChord * 0.32);
-    ctx.lineTo(dir * (span - innerSpan), -tipChord * 0.24);
-    ctx.lineTo(dir * (span - innerSpan), tipChord * 0.38);
+    ctx.lineTo(dir * (sideSpan - sideInnerSpan), -tipChord * 0.24);
+    ctx.lineTo(dir * (sideSpan - sideInnerSpan), tipChord * 0.38);
     ctx.lineTo(0, tipChord * 0.50);
     ctx.closePath();
     ctx.fill();
@@ -124,14 +132,19 @@ function drawAircraft(
     // Small upward face on the tip makes deflection readable from the rear.
     ctx.fillStyle = accent;
     ctx.globalAlpha = 0.55;
-    ctx.fillRect(dir > 0 ? (span - innerSpan) - 2 : -(span - innerSpan), -tipChord * 0.18, dir > 0 ? 2 : -2, tipChord * 0.36);
+    ctx.fillRect(
+      dir > 0 ? (sideSpan - sideInnerSpan) - 2 : -(sideSpan - sideInnerSpan),
+      -tipChord * 0.18,
+      dir > 0 ? 2 : -2,
+      tipChord * 0.36,
+    );
     ctx.globalAlpha = 1;
     ctx.restore();
 
     // Hinge marker.
     ctx.fillStyle = accent;
     ctx.beginPath();
-    ctx.arc(dir * innerSpan, wingY, 3.5, 0, Math.PI * 2);
+    ctx.arc(dir * sideInnerSpan, wingY, 3.5, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
@@ -248,7 +261,7 @@ function TunnelCanvas({
       // flight path. In this rear view the aircraft nose points toward the top of
       // the canvas, so the main flow is drawn in that same on-screen direction.
       const speedPx = (s.windSpeed / 30) * 3.6;
-      const vanishX = w / 2;
+      const vanishX = w / 2 - w * 0.035;
       for (const p of parts) {
         p.y -= speedPx * p.v;
         if (p.y < -p.len) {
@@ -259,7 +272,10 @@ function TunnelCanvas({
         // Slight perspective convergence makes the flow read as travelling
         // along the fuselage rather than as a vertical gust.
         const depth = 1 - Math.max(0, Math.min(1, p.y / Math.max(1, h)));
-        const px = p.x + (vanishX - p.x) * depth * 0.18;
+        const px =
+          p.x +
+          (vanishX - p.x) * depth * 0.18 -
+          depth * w * 0.025;
         const wobble = Math.sin((p.y + s.t * 90) * 0.015) * 0.8;
         const xx = px + wobble;
         const len = p.len * (0.85 + depth * 0.25);
@@ -673,7 +689,9 @@ export default function WindTunnel() {
                     {flex ? "Albatross-Inspired Aircraft" : "Traditional Aircraft"}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    {flex ? "Rear view • ~15° elevated • hinged / flexible wingtips" : "Rear view • ~15° elevated • rigid / non-hinged wingtips"}
+                    {flex
+                      ? "Rear three-quarter • ~15° elevated • ~12° off-center • flexible tips"
+                      : "Rear three-quarter • ~15° elevated • ~12° off-center • rigid tips"}
                   </p>
                 </div>
                 <span
@@ -700,7 +718,8 @@ export default function WindTunnel() {
         <Note>
           Both aircraft face exactly the same steady main airflow and the same target gust.
           Cyan streaks show the normal tunnel airflow moving along the aircraft's flight
-          path toward the nose in this rear, ~15° elevated view, while the orange vertical gust
+          path toward the nose in this rear three-quarter (~15° elevated, ~12° off-center)
+          view, while the orange vertical gust
           rises from below. “Current Gust at Aircraft” increases only
           when that upward gust reaches the wings. The gust reaches both aircraft at the
           same moment, then passes and the aircraft settle. The rigid wingtip barely moves,
