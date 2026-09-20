@@ -45,10 +45,13 @@ function drawAircraft(
 ) {
   const { deflection, shake, accent, time } = opts;
 
-  // Rear, slightly elevated camera: fuselage points away from the viewer.
-  // Main wings are drawn straight across at rest so tip deflection is easy to compare.
+  // Rear view with an approximately 15° elevated camera.
+  // This keeps both wings fully visible while showing a small amount of the
+  // aircraft's upper surface, making wingtip deflection easier to read.
+  const cameraElevationDeg = 15;
+  const elevation = cameraElevationDeg / 90;
   const cx = w / 2 + Math.sin(time * 37) * shake * 5.5;
-  const cy = h * 0.56 + Math.cos(time * 53) * shake * 3.3;
+  const cy = h * (0.57 + elevation * 0.02) + Math.cos(time * 53) * shake * 3.3;
   const roll = Math.sin(time * 29) * shake * 0.024;
 
   const span = Math.min(w * 0.4, 245);
@@ -61,13 +64,23 @@ function drawAircraft(
   ctx.translate(cx, cy);
   ctx.rotate(roll);
 
-  // Far nose / fuselage axis (away from camera).
-  ctx.fillStyle = "rgba(95,145,175,0.78)";
+  // Fuselage seen from rear and slightly above: narrow toward the nose,
+  // wider near the tail, with a highlighted top surface.
+  ctx.fillStyle = "rgba(88,138,170,0.82)";
   ctx.beginPath();
-  ctx.moveTo(-rootChord * 0.28, -h * 0.24);
-  ctx.lineTo(rootChord * 0.28, -h * 0.24);
-  ctx.lineTo(rootChord * 0.55, rootChord * 0.5);
-  ctx.lineTo(-rootChord * 0.55, rootChord * 0.5);
+  ctx.moveTo(-rootChord * 0.22, -h * 0.25);
+  ctx.lineTo(rootChord * 0.22, -h * 0.25);
+  ctx.lineTo(rootChord * 0.58, rootChord * 0.52);
+  ctx.lineTo(-rootChord * 0.58, rootChord * 0.52);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(185,225,240,0.42)";
+  ctx.beginPath();
+  ctx.moveTo(0, -h * 0.245);
+  ctx.lineTo(rootChord * 0.34, rootChord * 0.45);
+  ctx.lineTo(0, rootChord * 0.25);
+  ctx.lineTo(-rootChord * 0.34, rootChord * 0.45);
   ctx.closePath();
   ctx.fill();
 
@@ -83,10 +96,10 @@ function drawAircraft(
     wingGrad.addColorStop(1, "rgba(55,90,118,0.98)");
     ctx.fillStyle = wingGrad;
     ctx.beginPath();
-    ctx.moveTo(dir * rootChord * 0.35, wingY - rootChord * 0.42);
-    ctx.lineTo(dir * innerSpan, wingY - tipChord * 0.42);
-    ctx.lineTo(dir * innerSpan, wingY + tipChord * 0.42);
-    ctx.lineTo(dir * rootChord * 0.35, wingY + rootChord * 0.42);
+    ctx.moveTo(dir * rootChord * 0.35, wingY - rootChord * 0.34);
+    ctx.lineTo(dir * innerSpan, wingY - tipChord * 0.30);
+    ctx.lineTo(dir * innerSpan, wingY + tipChord * 0.48);
+    ctx.lineTo(dir * rootChord * 0.35, wingY + rootChord * 0.50);
     ctx.closePath();
     ctx.fill();
 
@@ -101,10 +114,10 @@ function drawAircraft(
     tipGrad.addColorStop(1, "rgba(35,72,100,0.98)");
     ctx.fillStyle = tipGrad;
     ctx.beginPath();
-    ctx.moveTo(0, -tipChord * 0.42);
-    ctx.lineTo(dir * (span - innerSpan), -tipChord * 0.32);
-    ctx.lineTo(dir * (span - innerSpan), tipChord * 0.32);
-    ctx.lineTo(0, tipChord * 0.42);
+    ctx.moveTo(0, -tipChord * 0.32);
+    ctx.lineTo(dir * (span - innerSpan), -tipChord * 0.24);
+    ctx.lineTo(dir * (span - innerSpan), tipChord * 0.38);
+    ctx.lineTo(0, tipChord * 0.50);
     ctx.closePath();
     ctx.fill();
 
@@ -660,7 +673,7 @@ export default function WindTunnel() {
                     {flex ? "Albatross-Inspired Aircraft" : "Traditional Aircraft"}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    {flex ? "Rear view • hinged / flexible wingtips" : "Rear view • rigid / non-hinged wingtips"}
+                    {flex ? "Rear view • ~15° elevated • hinged / flexible wingtips" : "Rear view • ~15° elevated • rigid / non-hinged wingtips"}
                   </p>
                 </div>
                 <span
@@ -687,7 +700,7 @@ export default function WindTunnel() {
         <Note>
           Both aircraft face exactly the same steady main airflow and the same target gust.
           Cyan streaks show the normal tunnel airflow moving along the aircraft's flight
-          path toward the nose in this rear-view diagram, while the orange vertical gust
+          path toward the nose in this rear, ~15° elevated view, while the orange vertical gust
           rises from below. “Current Gust at Aircraft” increases only
           when that upward gust reaches the wings. The gust reaches both aircraft at the
           same moment, then passes and the aircraft settle. The rigid wingtip barely moves,
