@@ -425,15 +425,23 @@ export default function DynamicSoaring() {
       ds.localWind = windAt(ds.y, s.lowerWind, s.upperWind);
       ds.altitude = 3 + ds.y * 45;
 
-      // energy extraction happens most when crossing the shear boundary
-      const crossing = Math.abs(Math.sin(theta)) * (1 - Math.abs(ds.y - 0.5) * 1.35);
-      const gain = Math.max(0, crossing) * windDiff * cfg.efficiency * 0.5 * k;
-      const drag = 1.1 * k * cfg.dragMultiplier;
-      ds.gaining = gain > drag;
-      ds.energy += (gain - drag) * dt;
+      // energy is extracted only while crossing the shear band, not by sitting
+      // in the fast layer: needs vertical motion AND proximity to the band
+      const vertical = Math.abs(Math.sin(theta));
+      const inBand = Math.max(0, 1 - Math.abs(ds.y - 0.5) / (BAND_HALF * 2.2));
+      const crossing = vertical * inBand;
+      const gain = crossing * windDiff * cfg.efficiency * 0.55 * k;
+      const drag = 1.0 * k * cfg.dragMultiplier;
+      // turning losses peak at the top and bottom turns
+      const turning = Math.abs(Math.cos(theta));
+      const turnLoss = turning * 1.35 * k * cfg.dragMultiplier;
+      const rate = gain - drag - turnLoss;
+      ds.energyRate += (rate - ds.energyRate) * Math.min(1, dt * 4);
+      ds.energy += rate * dt;
+      ds.state = ds.energyRate > 0.35 ? "gain" : ds.energyRate < -0.35 ? "loss" : "neutral";
 
-      // airspeed: boosted by crossings and the fast upper layer
-      ds.airspeed = 14 + Math.max(0, crossing) * 14 + (ds.y > 0.5 ? 3.5 : 0) + Math.sin(theta) * 0.6;
+      // airspeed: live output — boosted by crossings and the fast upper layer
+      ds.airspeed = 14 + crossing * 14 + (ds.y > 0.5 ? 3.5 : 0) + Math.sin(theta) * 0.6;
 
       ds.trail.push({ x: ds.x, y: ds.y });
       if (ds.trail.length > 260) ds.trail.shift();
