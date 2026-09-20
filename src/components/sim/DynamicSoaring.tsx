@@ -131,6 +131,13 @@ function drawScene(
   drawArrows(0.62, upperWind, 3);
   drawArrows(0.08, lowerWind, 3);
 
+  // Intermediate rows make the wind gradient read as a smooth change rather
+  // than a sudden jump between two discrete layers.
+  const gradientRows = [0.36, 0.43, 0.50, 0.57];
+  gradientRows.forEach((yFrac) => {
+    drawArrows(yFrac, windAt(yFrac, lowerWind, upperWind), 1);
+  });
+
   // shear band (a region, not an infinitely thin line)
   const by = toPx(0.5);
   const bTop = toPx(0.5 + BAND_HALF);
@@ -591,6 +598,34 @@ export default function DynamicSoaring() {
         </div>
       </Panel>
 
+      <div className="grid gap-3 md:grid-cols-2">
+        <Panel className="p-4 sm:p-5">
+          <h4 className="tech-label mb-2 text-xs text-primary">What is Dynamic Soaring?</h4>
+          <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+            Dynamic soaring is a flight technique that extracts useful energy by repeatedly
+            crossing between slower and faster moving air. The aircraft gains energy from the
+            wind-speed gradient, not simply from staying in the faster upper layer.
+          </p>
+        </Panel>
+        <Panel className="p-4 sm:p-5">
+          <h4 className="tech-label mb-2 text-xs text-primary">Energy Mechanism</h4>
+          <div className="grid gap-2 text-xs sm:grid-cols-3 sm:text-sm">
+            <div className="rounded-lg border border-accent/25 bg-accent/5 p-2">
+              <span className="font-semibold text-accent">Gradient crossing</span>
+              <div className="mt-1 text-muted-foreground">Energy gain</div>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/20 p-2">
+              <span className="font-semibold text-foreground">Turning + drag</span>
+              <div className="mt-1 text-muted-foreground">Energy loss</div>
+            </div>
+            <div className="rounded-lg border border-primary/25 bg-primary/5 p-2">
+              <span className="font-semibold text-primary">Repeat cycle</span>
+              <div className="mt-1 text-muted-foreground">Sustained flight</div>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px]">
         {/* Main Simulation Area */}
         <Panel className="overflow-hidden p-3 sm:p-4">
@@ -717,6 +752,13 @@ export default function DynamicSoaring() {
           </div>
         </div>
         <EnergyGraph sim={sim} />
+        <div className="mt-3 rounded-xl border border-accent/30 bg-accent/5 p-3">
+          <div className="tech-label mb-1 text-[10px] text-accent">MAIN TAKEAWAY</div>
+          <p className="text-xs font-semibold leading-relaxed text-foreground sm:text-sm">
+            The aircraft gains useful energy by repeatedly crossing the wind-speed gradient —
+            not by simply remaining in the faster upper layer.
+          </p>
+        </div>
         <Note>
           Energy is only extracted while the aircraft repeatedly crosses the wind
           gradient — climbing into faster air and descending back into slower air. Staying
