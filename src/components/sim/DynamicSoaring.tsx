@@ -633,7 +633,7 @@ export default function DynamicSoaring() {
       {/* Bottom Section: Energy Graph */}
       <Panel className="p-4 sm:p-5">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h4 className="tech-label text-xs text-primary">Energy vs Time</h4>
+          <h4 className="tech-label text-xs text-primary">Net Flight Energy vs Time</h4>
           <div className="flex gap-4 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <i className="inline-block h-2 w-4 rounded bg-accent" /> Albatross-inspired
