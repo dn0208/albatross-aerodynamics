@@ -1,15 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { ActionButton, DataCard, Note, Panel, Slider } from "./ui";
 
-const LOWER_WIND = 7;
-const UPPER_WIND = 22;
 const STAGES = ["Climb", "Top Turn", "Descend", "Bottom Turn"] as const;
 type Stage = (typeof STAGES)[number];
+
+type PathStyle = "gentle" | "optimal" | "aggressive";
+
+const PATH_STYLES: Record<
+  PathStyle,
+  { label: string; amplitude: number; efficiency: number; dragMultiplier: number }
+> = {
+  gentle: { label: "Gentle", amplitude: 0.26, efficiency: 0.72, dragMultiplier: 0.92 },
+  optimal: { label: "Optimal", amplitude: 0.38, efficiency: 1.0, dragMultiplier: 1.15 },
+  aggressive: { label: "Aggressive", amplitude: 0.47, efficiency: 0.88, dragMultiplier: 1.55 },
+};
 
 type Craft = {
   x: number;
   y: number; // 0 = sea level, 1 = top of scene
-  heading: number;
+  heading: number; // radians, points in direction of travel
   airspeed: number;
   altitude: number;
   localWind: number;
@@ -22,10 +31,11 @@ type Craft = {
 type DSState = {
   t: number;
   cycleSpeed: number;
-  altitudeOffset: number;
+  lowerWind: number;
+  upperWind: number;
+  pathStyle: PathStyle;
   ds: Craft;
-  trad: Craft;
-  history: { t: number; ds: number; trad: number }[];
+  history: { t: number; ds: number }[];
 };
 
 function newCraft(stage: Stage): Craft {
@@ -33,9 +43,9 @@ function newCraft(stage: Stage): Craft {
     x: 0.5,
     y: 0.25,
     heading: 0,
-    airspeed: 18,
+    airspeed: 16,
     altitude: 6,
-    localWind: LOWER_WIND,
+    localWind: 7,
     energy: 0,
     gaining: false,
     stage,
@@ -43,10 +53,10 @@ function newCraft(stage: Stage): Craft {
   };
 }
 
-function windAt(y: number) {
+function windAt(y: number, lowerWind: number, upperWind: number) {
   // smooth shear between the two layers around y = 0.5
   const k = 1 / (1 + Math.exp(-(y - 0.5) * 14));
-  return LOWER_WIND + (UPPER_WIND - LOWER_WIND) * k;
+  return lowerWind + (upperWind - lowerWind) * k;
 }
 
 function drawScene(
@@ -54,8 +64,9 @@ function drawScene(
   w: number,
   h: number,
   craft: Craft,
+  lowerWind: number,
+  upperWind: number,
   t: number,
-  isDS: boolean,
 ) {
   ctx.clearRect(0, 0, w, h);
   const sky = ctx.createLinearGradient(0, 0, 0, h);
@@ -87,8 +98,8 @@ function drawScene(
 
   // wind layer arrows
   const drawArrows = (yFrac: number, speed: number, rows: number) => {
-    const alpha = speed > 15 ? 0.75 : 0.4;
-    const len = speed * 2.2;
+    const alpha = speed > 12 ? 0.75 : 0.4;
+    const len = Math.max(4, speed * 2.2);
     for (let r = 0; r < rows; r++) {
       const y = toPx(yFrac + r * 0.09);
       const offset = (t * speed * 14 + r * 60) % (w + 160);
@@ -110,8 +121,8 @@ function drawScene(
       }
     }
   };
-  drawArrows(0.62, UPPER_WIND, 3);
-  drawArrows(0.08, LOWER_WIND, 3);
+  drawArrows(0.62, upperWind, 3);
+  drawArrows(0.08, lowerWind, 3);
 
   // shear boundary
   const by = toPx(0.5);
@@ -130,12 +141,12 @@ function drawScene(
 
   ctx.fillStyle = "rgba(190,235,255,0.9)";
   ctx.font = "600 11px Inter, sans-serif";
-  ctx.fillText(`Upper Layer  ${UPPER_WIND} m/s`, 10, toPx(0.85));
-  ctx.fillText(`Lower Layer  ${LOWER_WIND} m/s`, 10, toPx(0.2));
+  ctx.fillText(`Upper Layer  ${upperWind.toFixed(0)} m/s`, 10, toPx(0.85));
+  ctx.fillText(`Lower Layer  ${lowerWind.toFixed(0)} m/s`, 10, toPx(0.2));
 
   // trail
   if (craft.trail.length > 1) {
-    ctx.strokeStyle = isDS ? "rgba(90,235,215,0.8)" : "rgba(255,190,110,0.7)";
+    ctx.strokeStyle = "rgba(90,235,215,0.75)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     craft.trail.forEach((p, i) => {
@@ -146,55 +157,91 @@ function drawScene(
     ctx.stroke();
   }
 
-  // aircraft (small planform glyph)
+  // 3D-like albatross-inspired aircraft
   const px = craft.x * w;
   const py = toPx(craft.y);
   ctx.save();
   ctx.translate(px, py);
   ctx.rotate(craft.heading);
-  const s = Math.min(1.2, w / 420) * 14;
-  const g = ctx.createLinearGradient(-s, 0, s, 0);
-  g.addColorStop(0, "rgba(235,250,255,0.98)");
-  g.addColorStop(1, "rgba(120,190,220,0.95)");
-  ctx.fillStyle = g;
+  const s = Math.min(1.25, w / 420) * 16;
+
+  // fuselage (shaded tube)
+  const bodyGrad = ctx.createLinearGradient(-s * 0.2, -s * 0.25, s * 0.2, s * 0.25);
+  bodyGrad.addColorStop(0, "rgba(210,245,255,0.98)");
+  bodyGrad.addColorStop(0.5, "rgba(140,200,230,0.95)");
+  bodyGrad.addColorStop(1, "rgba(90,160,200,0.95)");
+  ctx.fillStyle = bodyGrad;
   ctx.beginPath();
-  ctx.moveTo(s * 1.15, 0);
-  ctx.lineTo(-s * 0.3, s * 0.22);
-  ctx.lineTo(-s * 0.9, s * 0.1);
-  ctx.lineTo(-s * 0.9, -s * 0.1);
-  ctx.lineTo(-s * 0.3, -s * 0.22);
+  ctx.ellipse(0, 0, s * 1.05, s * 0.22, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // nose cone
+  ctx.fillStyle = "rgba(235,250,255,0.98)";
+  ctx.beginPath();
+  ctx.moveTo(s * 1.1, 0);
+  ctx.lineTo(s * 0.45, s * 0.18);
+  ctx.lineTo(s * 0.45, -s * 0.18);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = isDS ? "rgba(90,235,215,0.95)" : "rgba(255,190,110,0.95)";
+
+  // main wings (swept back, gradient)
+  const wingGrad = ctx.createLinearGradient(-s * 0.3, 0, s * 0.5, 0);
+  wingGrad.addColorStop(0, "rgba(160,220,245,0.92)");
+  wingGrad.addColorStop(1, "rgba(90,235,215,0.88)");
+  ctx.fillStyle = wingGrad;
   ctx.beginPath();
-  ctx.moveTo(s * 0.1, 0);
-  ctx.lineTo(-s * 0.45, s * 0.95);
-  ctx.lineTo(-s * 0.15, s * 0.95);
-  ctx.lineTo(s * 0.35, 0);
-  ctx.lineTo(-s * 0.15, -s * 0.95);
-  ctx.lineTo(-s * 0.45, -s * 0.95);
+  ctx.moveTo(s * 0.15, 0);
+  ctx.lineTo(-s * 0.55, s * 1.25);
+  ctx.lineTo(-s * 0.35, s * 1.3);
+  ctx.lineTo(s * 0.35, s * 0.15);
+  ctx.lineTo(-s * 0.35, -s * 1.3);
+  ctx.lineTo(-s * 0.55, -s * 1.25);
   ctx.closePath();
   ctx.fill();
+
+  // wingtips (hinged/flexible hint)
+  ctx.fillStyle = "rgba(90,235,215,0.95)";
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.45, s * 1.25);
+  ctx.lineTo(-s * 0.75, s * 1.45);
+  ctx.lineTo(-s * 0.6, s * 1.5);
+  ctx.lineTo(-s * 0.32, s * 1.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.45, -s * 1.25);
+  ctx.lineTo(-s * 0.75, -s * 1.45);
+  ctx.lineTo(-s * 0.6, -s * 1.5);
+  ctx.lineTo(-s * 0.32, -s * 1.32);
+  ctx.closePath();
+  ctx.fill();
+
+  // tail
+  ctx.fillStyle = "rgba(120,210,235,0.9)";
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.6, 0);
+  ctx.lineTo(-s * 1.0, s * 0.42);
+  ctx.lineTo(-s * 0.95, s * 0.48);
+  ctx.lineTo(-s * 0.5, s * 0.1);
+  ctx.lineTo(-s * 0.95, -s * 0.48);
+  ctx.lineTo(-s * 1.0, -s * 0.42);
+  ctx.closePath();
+  ctx.fill();
+
   ctx.restore();
 
   // energy indicator
   ctx.font = "700 12px Inter, sans-serif";
   if (craft.gaining) {
     ctx.fillStyle = "rgba(90,235,215,1)";
-    ctx.fillText("+ Energy", px + 16, py - 14);
+    ctx.fillText("+ ENERGY", px + 18, py - 14);
   } else {
     ctx.fillStyle = "rgba(255,150,130,0.95)";
-    ctx.fillText("− Drag Loss", px + 16, py - 14);
+    ctx.fillText("ENERGY LOSS", px + 18, py - 14);
   }
 }
 
-function SceneCanvas({
-  sim,
-  isDS,
-}: {
-  sim: React.RefObject<DSState>;
-  isDS: boolean;
-}) {
+function SceneCanvas({ sim }: { sim: React.RefObject<DSState> }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -219,15 +266,15 @@ function SceneCanvas({
     const loop = () => {
       raf = requestAnimationFrame(loop);
       const s = sim.current;
-      drawScene(ctx, w, h, isDS ? s.ds : s.trad, s.t, isDS);
+      drawScene(ctx, w, h, s.ds, s.lowerWind, s.upperWind, s.t);
     };
     loop();
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [isDS, sim]);
-  return <canvas ref={ref} className="h-[240px] w-full sm:h-[310px] lg:h-[350px]" />;
+  }, [sim]);
+  return <canvas ref={ref} className="h-[240px] w-full sm:h-[310px] lg:h-[360px]" />;
 }
 
 function EnergyGraph({ sim }: { sim: React.RefObject<DSState> }) {
@@ -269,27 +316,23 @@ function EnergyGraph({ sim }: { sim: React.RefObject<DSState> }) {
       let min = 0;
       let max = 1;
       for (const p of hist) {
-        min = Math.min(min, p.ds, p.trad);
-        max = Math.max(max, p.ds, p.trad);
+        min = Math.min(min, p.ds);
+        max = Math.max(max, p.ds);
       }
       const pad = (max - min) * 0.12 + 1;
       min -= pad;
       max += pad;
       const t0 = hist[0]!.t;
       const t1 = Math.max(hist[hist.length - 1]!.t, t0 + 1);
-      const plot = (key: "ds" | "trad", color: string) => {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        hist.forEach((p, i) => {
-          const x = ((p.t - t0) / (t1 - t0)) * w;
-          const y = h - ((p[key] - min) / (max - min)) * h;
-          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-      };
-      plot("trad", "rgba(255,190,110,0.9)");
-      plot("ds", "rgba(90,235,215,1)");
+      ctx.strokeStyle = "rgba(90,235,215,1)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      hist.forEach((p, i) => {
+        const x = ((p.t - t0) / (t1 - t0)) * w;
+        const y = h - ((p.ds - min) / (max - min)) * h;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
     };
     loop();
     return () => {
@@ -302,20 +345,24 @@ function EnergyGraph({ sim }: { sim: React.RefObject<DSState> }) {
 
 export default function DynamicSoaring() {
   const [running, setRunning] = useState(true);
-  const [cycleSpeed, setCycleSpeed] = useState(100);
-  const [altitude, setAltitude] = useState(0);
+  const [lowerWind, setLowerWind] = useState(7);
+  const [upperWind, setUpperWind] = useState(22);
+  const [pathStyle, setPathStyle] = useState<PathStyle>("optimal");
   const [, force] = useState(0);
 
   const sim = useRef<DSState>({
     t: 0,
     cycleSpeed: 1,
-    altitudeOffset: 0,
+    lowerWind: 7,
+    upperWind: 22,
+    pathStyle: "optimal",
     ds: newCraft("Climb"),
-    trad: newCraft("Climb"),
     history: [],
   });
-  sim.current.cycleSpeed = cycleSpeed / 100;
-  sim.current.altitudeOffset = altitude;
+
+  sim.current.lowerWind = lowerWind;
+  sim.current.upperWind = upperWind;
+  sim.current.pathStyle = pathStyle;
 
   useEffect(() => {
     let raf = 0;
@@ -331,7 +378,8 @@ export default function DynamicSoaring() {
       if (!running) return;
       s.t += dt;
       const k = s.cycleSpeed;
-      const yOffset = s.altitudeOffset / 45;
+      const cfg = PATH_STYLES[s.pathStyle];
+      const windDiff = s.upperWind - s.lowerWind;
 
       // --- Albatross-inspired: dynamic soaring cycle ---
       const period = 8 / k;
@@ -339,41 +387,38 @@ export default function DynamicSoaring() {
       const ds = s.ds;
       const stageIndex = Math.floor(phase * 4);
       ds.stage = STAGES[stageIndex]!;
-      // vertical: sinusoidal between 0.12 and 0.88, horizontal: figure sweep
-      ds.y = Math.max(0.05, Math.min(0.95, 0.5 - 0.38 * Math.cos(phase * Math.PI * 2) + yOffset));
-      ds.x = 0.5 + 0.34 * Math.sin(phase * Math.PI * 2);
-      const dyn = Math.sin(phase * Math.PI * 2);
-      ds.heading = -dyn * 0.9 + (ds.stage.includes("Turn") ? 0.2 : 0);
-      ds.localWind = windAt(ds.y);
+
+      const theta = phase * Math.PI * 2;
+      const A = cfg.amplitude;
+      const B = 0.34;
+      ds.y = Math.max(0.05, Math.min(0.95, 0.5 - A * Math.cos(theta)));
+      ds.x = 0.5 + B * Math.sin(theta);
+
+      // tangent angle (canvas y increases downward, so flip dy)
+      const dx = B * Math.cos(theta);
+      const dySim = A * Math.sin(theta);
+      ds.heading = Math.atan2(-dySim, dx);
+
+      ds.localWind = windAt(ds.y, s.lowerWind, s.upperWind);
       ds.altitude = 3 + ds.y * 45;
-      const crossing = Math.abs(dyn) * (1 - Math.abs(ds.y - 0.5) * 1.2);
-      const gain = Math.max(0, crossing) * (UPPER_WIND - LOWER_WIND) * 0.5 * k;
-      const drag = 1.25 * k;
-      ds.airspeed = 16 + Math.max(0, crossing) * 18 + (ds.y > 0.5 ? 4 : 0);
+
+      // energy extraction happens most when crossing the shear boundary
+      const crossing = Math.abs(Math.sin(theta)) * (1 - Math.abs(ds.y - 0.5) * 1.35);
+      const gain = Math.max(0, crossing) * windDiff * cfg.efficiency * 0.5 * k;
+      const drag = 1.1 * k * cfg.dragMultiplier;
       ds.gaining = gain > drag;
       ds.energy += (gain - drag) * dt;
+
+      // airspeed: boosted by crossings and the fast upper layer
+      ds.airspeed = 14 + Math.max(0, crossing) * 14 + (ds.y > 0.5 ? 3.5 : 0) + Math.sin(theta) * 0.6;
+
       ds.trail.push({ x: ds.x, y: ds.y });
       if (ds.trail.length > 260) ds.trail.shift();
-
-      // --- Traditional: level cruise inside the lower layer ---
-      const tr = s.trad;
-      tr.x = (0.08 + ((s.t * 0.12 * k) % 1) * 0.9) % 1;
-      tr.y = Math.max(0.05, Math.min(0.95, 0.3 + Math.sin(s.t * 0.9 * k) * 0.03 + yOffset));
-      tr.heading = Math.cos(s.t * 0.9 * k) * 0.08;
-      tr.localWind = windAt(tr.y);
-      tr.altitude = 3 + tr.y * 45;
-      tr.airspeed = 19 + Math.sin(s.t * 0.9 * k) * 1.2;
-      tr.stage = "Climb";
-      tr.gaining = false;
-      tr.energy += -0.95 * k * dt;
-      tr.trail.push({ x: tr.x, y: tr.y });
-      if (tr.trail.length > 90 || (tr.trail.length > 1 && tr.x < tr.trail[tr.trail.length - 2]!.x))
-        tr.trail.shift();
 
       histAcc += dt;
       if (histAcc > 0.25) {
         histAcc = 0;
-        s.history.push({ t: s.t, ds: ds.energy, trad: tr.energy });
+        s.history.push({ t: s.t, ds: ds.energy });
         if (s.history.length > 160) s.history.shift();
       }
 
@@ -390,130 +435,171 @@ export default function DynamicSoaring() {
   const reset = () => {
     sim.current.t = 0;
     sim.current.ds = newCraft("Climb");
-    sim.current.trad = newCraft("Climb");
     sim.current.history = [];
-    setCycleSpeed(100);
-    setAltitude(0);
+    setLowerWind(7);
+    setUpperWind(22);
+    setPathStyle("optimal");
     setRunning(true);
   };
 
-  const ds = sim.current.ds;
-  const tr = sim.current.trad;
+  const updateLowerWind = (v: number) => {
+    setLowerWind(v);
+    if (v >= upperWind) setUpperWind(Math.min(30, v + 1));
+  };
 
-  const panel = (isDS: boolean) => {
-    const c = isDS ? ds : tr;
-    return (
-      <Panel className="overflow-hidden p-3 sm:p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
+  const updateUpperWind = (v: number) => {
+    setUpperWind(v);
+    if (v <= lowerWind) setLowerWind(Math.max(0, v - 1));
+  };
+
+  const ds = sim.current.ds;
+  const gradient = upperWind - lowerWind;
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Top Section */}
+      <Panel className="p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h3 className="font-display text-sm font-bold sm:text-base">
-              {isDS ? "Albatross-Inspired Aircraft" : "Traditional Aircraft"}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {isDS ? "Dynamic soaring through the gradient" : "Level cruise, lower layer"}
+            <h2 className="font-display text-lg font-extrabold leading-tight glow-text sm:text-2xl">
+              Dynamic Soaring Demonstration
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+              Albatross-Inspired Aircraft
             </p>
           </div>
-          {isDS ? (
+          <div className="flex gap-2">
+            <ActionButton
+              variant={running ? "ghost" : "primary"}
+              onClick={() => setRunning(true)}
+              active={running}
+            >
+              Start
+            </ActionButton>
+            <ActionButton onClick={() => setRunning(false)} active={!running}>
+              Pause
+            </ActionButton>
+            <ActionButton variant="alert" onClick={reset}>
+              Reset
+            </ActionButton>
+          </div>
+        </div>
+      </Panel>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px]">
+        {/* Main Simulation Area */}
+        <Panel className="overflow-hidden p-3 sm:p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="font-display text-sm font-bold sm:text-base">Albatross-Inspired Aircraft</h3>
+              <p className="text-xs text-muted-foreground">Extracting energy from the wind gradient</p>
+            </div>
             <span className="tech-label rounded-full bg-accent/15 px-3 py-1 text-[10px] text-accent">
-              {c.stage}
+              {ds.stage}
             </span>
-          ) : (
-            <span className="tech-label rounded-full bg-[color:var(--warn)]/15 px-3 py-1 text-[10px] text-[color:var(--warn)]">
-              Powered
-            </span>
-          )}
-        </div>
-        <div className="overflow-hidden rounded-xl border border-border">
-          <SceneCanvas sim={sim} isDS={isDS} />
-        </div>
-        {isDS && (
+          </div>
+          <div className="overflow-hidden rounded-xl border border-border">
+            <SceneCanvas sim={sim} />
+          </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {STAGES.map((st) => (
               <span
                 key={st}
                 className={`tech-label rounded-md px-2 py-1 text-[10px] ${
-                  c.stage === st
+                  ds.stage === st
                     ? "bg-primary text-primary-foreground"
                     : "border border-border text-muted-foreground"
                 }`}
               >
-                {st}
+                {st.toUpperCase()}
               </span>
             ))}
           </div>
-        )}
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:gap-3">
-          <DataCard label="Airspeed" value={c.airspeed.toFixed(1)} unit="m/s" />
-          <DataCard label="Altitude" value={c.altitude.toFixed(1)} unit="m" />
-          <DataCard label="Local Wind Speed" value={c.localWind.toFixed(1)} unit="m/s" />
-          <DataCard
-            label="Wind-Speed Difference"
-            value={(UPPER_WIND - LOWER_WIND).toFixed(0)}
-            unit="m/s"
-          />
-          <div className="col-span-2">
-            <DataCard
-              label="Energy Gained from the Wind"
-              value={(Math.abs(c.energy) < 0.05 ? 0 : c.energy).toFixed(1)}
-              unit="units"
-              tone={c.energy > 0 ? "good" : "warn"}
-              big
-            />
-          </div>
-        </div>
-      </Panel>
-    );
-  };
+        </Panel>
 
-  return (
-    <div className="space-y-4 sm:space-y-6">
-      <Panel className="p-4 sm:p-5">
-        <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
-          <Slider
-            label="Cycle Speed"
-            value={cycleSpeed}
-            min={40}
-            max={180}
-            unit="%"
-            onChange={setCycleSpeed}
-          />
-          <Slider
-            label="Altitude Offset"
-            value={altitude}
-            min={0}
-            max={40}
-            step={1}
-            unit="m"
-            onChange={setAltitude}
-          />
-          <div className="flex flex-wrap gap-2">
-            <ActionButton
-              variant={running ? "ghost" : "primary"}
-              onClick={() => setRunning(true)}
-            >
-              Start
-            </ActionButton>
-            <ActionButton onClick={() => setRunning(false)}>Pause</ActionButton>
-            <ActionButton onClick={reset}>Reset</ActionButton>
-          </div>
-        </div>
-      </Panel>
+        {/* Controls + Environment + Live Data */}
+        <div className="space-y-4 sm:space-y-5">
+          {/* Controls Section */}
+          <Panel className="p-4 sm:p-5">
+            <h4 className="tech-label mb-3 text-xs text-primary">Controls</h4>
+            <div className="space-y-4">
+              <Slider
+                label="Lower-Layer Wind Speed"
+                value={lowerWind}
+                min={0}
+                max={15}
+                unit="m/s"
+                onChange={updateLowerWind}
+              />
+              <Slider
+                label="Upper-Layer Wind Speed"
+                value={upperWind}
+                min={10}
+                max={30}
+                unit="m/s"
+                onChange={updateUpperWind}
+              />
+              <div>
+                <div className="tech-label mb-2 text-xs text-muted-foreground">Soaring Path / Turn Style</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(PATH_STYLES) as PathStyle[]).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setPathStyle(key)}
+                      className={`tech-label min-h-[44px] rounded-xl px-2 text-[10px] font-semibold transition-all sm:text-xs ${
+                        pathStyle === key
+                          ? "bg-primary text-primary-foreground shadow-[0_0_20px_oklch(0.8_0.14_200/40%)]"
+                          : "border border-border text-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      {PATH_STYLES[key].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Panel>
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        {panel(false)}
-        {panel(true)}
+          {/* Environment Section */}
+          <Panel className="p-4 sm:p-5">
+            <h4 className="tech-label mb-3 text-xs text-primary">Environment</h4>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <DataCard label="Lower Wind" value={lowerWind.toFixed(0)} unit="m/s" />
+              <DataCard label="Upper Wind" value={upperWind.toFixed(0)} unit="m/s" />
+              <DataCard label="Wind Gradient" value={gradient.toFixed(0)} unit="m/s" tone="good" />
+            </div>
+          </Panel>
+
+          {/* Live Data Section */}
+          <Panel className="p-4 sm:p-5">
+            <h4 className="tech-label mb-3 text-xs text-primary">Live Data</h4>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <DataCard label="Airspeed" value={ds.airspeed.toFixed(1)} unit="m/s" />
+              <DataCard label="Altitude" value={ds.altitude.toFixed(1)} unit="m" />
+              <DataCard label="Local Wind Speed" value={ds.localWind.toFixed(1)} unit="m/s" />
+              <DataCard label="Wind-Speed Difference" value={gradient.toFixed(0)} unit="m/s" />
+              <div className="col-span-2">
+                <DataCard
+                  label="Energy Gained from Wind"
+                  value={(Math.abs(ds.energy) < 0.05 ? 0 : ds.energy).toFixed(1)}
+                  unit="units"
+                  tone={ds.energy > 0 ? "good" : "warn"}
+                  big
+                />
+              </div>
+            </div>
+          </Panel>
+        </div>
       </div>
 
+      {/* Bottom Section: Energy Graph */}
       <Panel className="p-4 sm:p-5">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h4 className="tech-label text-xs text-primary">Energy vs Time</h4>
           <div className="flex gap-4 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <i className="inline-block h-2 w-4 rounded bg-accent" /> Albatross-inspired
-            </span>
-            <span className="flex items-center gap-1.5">
-              <i className="inline-block h-2 w-4 rounded bg-[color:var(--warn)]" />
-              Traditional
             </span>
           </div>
         </div>
