@@ -72,6 +72,7 @@ function drawScene(
   craft: Craft,
   lowerWind: number,
   upperWind: number,
+  pathStyle: PathStyle,
   t: number,
 ) {
   ctx.clearRect(0, 0, w, h);
@@ -134,10 +135,11 @@ function drawScene(
   const by = toPx(0.5);
   const bTop = toPx(0.5 + BAND_HALF);
   const bBot = toPx(0.5 - BAND_HALF);
+  const inShearZone = Math.abs(craft.y - 0.5) <= BAND_HALF * 1.15;
   const band = ctx.createLinearGradient(0, bTop, 0, bBot);
-  band.addColorStop(0, "rgba(255,196,110,0.05)");
-  band.addColorStop(0.5, "rgba(255,196,110,0.16)");
-  band.addColorStop(1, "rgba(255,196,110,0.05)");
+  band.addColorStop(0, inShearZone ? "rgba(255,196,110,0.13)" : "rgba(255,196,110,0.05)");
+  band.addColorStop(0.5, inShearZone ? "rgba(255,196,110,0.34)" : "rgba(255,196,110,0.16)");
+  band.addColorStop(1, inShearZone ? "rgba(255,196,110,0.13)" : "rgba(255,196,110,0.05)");
   ctx.fillStyle = band;
   ctx.fillRect(0, bTop, w, bBot - bTop);
   ctx.strokeStyle = "rgba(255,200,120,0.28)";
@@ -152,14 +154,52 @@ function drawScene(
   ctx.lineTo(w, by);
   ctx.stroke();
   ctx.restore();
-  ctx.fillStyle = "rgba(255,210,140,0.95)";
+  ctx.fillStyle = inShearZone ? "rgba(255,225,160,1)" : "rgba(255,210,140,0.95)";
   ctx.font = "600 10px Inter, sans-serif";
   ctx.fillText("WIND GRADIENT / WIND SHEAR ZONE", 10, bTop - 5);
+  if (inShearZone) {
+    ctx.font = "700 12px Inter, sans-serif";
+    ctx.fillStyle = "rgba(255,228,165,1)";
+    ctx.fillText(
+      `WIND GRADIENT CROSSING  ${lowerWind.toFixed(0)} m/s → ${upperWind.toFixed(0)} m/s`,
+      Math.max(12, w * 0.34),
+      by - 10,
+    );
+  }
 
   ctx.fillStyle = "rgba(190,235,255,0.9)";
   ctx.font = "600 11px Inter, sans-serif";
   ctx.fillText(`Upper Layer  ${upperWind.toFixed(0)} m/s`, 10, toPx(0.85));
   ctx.fillText(`Lower Layer  ${lowerWind.toFixed(0)} m/s`, 10, toPx(0.2));
+
+  // numbered stage markers make the cycle readable from across a room
+  const cfg = PATH_STYLES[pathStyle];
+  const stagePoints = [
+    { phase: 0.125, label: "1", name: "CLIMB" },
+    { phase: 0.375, label: "2", name: "TOP TURN" },
+    { phase: 0.625, label: "3", name: "DESCEND" },
+    { phase: 0.875, label: "4", name: "BOTTOM TURN" },
+  ];
+  stagePoints.forEach(({ phase, label, name }) => {
+    const a = phase * Math.PI * 2;
+    const mx = (0.5 + 0.34 * Math.sin(a)) * w;
+    const my = toPx(Math.max(0.05, Math.min(0.95, 0.5 - cfg.amplitude * Math.cos(a))));
+    const active = craft.stage.toUpperCase() === name;
+    ctx.beginPath();
+    ctx.arc(mx, my, active ? 11 : 9, 0, Math.PI * 2);
+    ctx.fillStyle = active ? "rgba(90,235,215,0.98)" : "rgba(15,45,65,0.88)";
+    ctx.fill();
+    ctx.strokeStyle = active ? "rgba(220,255,250,0.95)" : "rgba(120,210,225,0.75)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = active ? "rgba(5,35,45,1)" : "rgba(215,245,250,0.95)";
+    ctx.font = "700 10px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, mx, my + 0.5);
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
+  });
 
   // trail
   if (craft.trail.length > 1) {
@@ -247,21 +287,30 @@ function drawScene(
 
   ctx.restore();
 
-  // energy state indicator
+  // energy state indicator + reason
   ctx.font = "700 12px Inter, sans-serif";
   const label =
     craft.state === "gain"
-      ? "\u2191 ENERGY GAIN"
+      ? "↑ ENERGY GAIN"
       : craft.state === "loss"
-        ? "\u2193 ENERGY LOSS"
-        : "\u2022 NEUTRAL";
+        ? "↓ ENERGY LOSS"
+        : "• NEUTRAL";
+  const reason =
+    craft.state === "gain"
+      ? "Crossing wind gradient"
+      : craft.state === "loss"
+        ? "Drag + turning"
+        : "Little net energy change";
   ctx.fillStyle =
     craft.state === "gain"
       ? "rgba(90,235,215,1)"
       : craft.state === "loss"
         ? "rgba(255,150,110,0.98)"
         : "rgba(165,195,215,0.9)";
-  ctx.fillText(label, px + 18, py - 14);
+  ctx.fillText(label, px + 18, py - 17);
+  ctx.font = "600 10px Inter, sans-serif";
+  ctx.fillStyle = "rgba(220,240,248,0.9)";
+  ctx.fillText(reason, px + 18, py - 3);
 }
 
 function SceneCanvas({ sim }: { sim: React.RefObject<DSState> }) {
@@ -289,7 +338,7 @@ function SceneCanvas({ sim }: { sim: React.RefObject<DSState> }) {
     const loop = () => {
       raf = requestAnimationFrame(loop);
       const s = sim.current;
-      drawScene(ctx, w, h, s.ds, s.lowerWind, s.upperWind, s.t);
+      drawScene(ctx, w, h, s.ds, s.lowerWind, s.upperWind, s.pathStyle, s.t);
     };
     loop();
     return () => {
@@ -371,6 +420,7 @@ export default function DynamicSoaring() {
   const [lowerWind, setLowerWind] = useState(7);
   const [upperWind, setUpperWind] = useState(22);
   const [pathStyle, setPathStyle] = useState<PathStyle>("optimal");
+  const [explanationMode, setExplanationMode] = useState(false);
   const [, force] = useState(0);
 
   const sim = useRef<DSState>({
@@ -386,6 +436,7 @@ export default function DynamicSoaring() {
   sim.current.lowerWind = lowerWind;
   sim.current.upperWind = upperWind;
   sim.current.pathStyle = pathStyle;
+  sim.current.cycleSpeed = explanationMode ? 0.6 : 1;
 
   useEffect(() => {
     let raf = 0;
@@ -470,6 +521,7 @@ export default function DynamicSoaring() {
     setLowerWind(7);
     setUpperWind(22);
     setPathStyle("optimal");
+    setExplanationMode(false);
     setRunning(true);
   };
 
@@ -485,6 +537,16 @@ export default function DynamicSoaring() {
 
   const ds = sim.current.ds;
   const gradient = upperWind - lowerWind;
+  const crossingNow = Math.abs(ds.y - 0.5) <= BAND_HALF * 1.15;
+  const guidedText = crossingNow
+    ? `Wind-gradient crossing: local wind is changing between ${lowerWind.toFixed(0)} and ${upperWind.toFixed(0)} m/s. This is where useful wind energy can be extracted.`
+    : ds.stage === "Climb"
+      ? "Climb: the aircraft rises from slower air toward the faster upper wind."
+      : ds.stage === "Top Turn"
+        ? "Top Turn: the aircraft turns in the faster upper wind. Drag and turning remove some energy."
+        : ds.stage === "Descend"
+          ? "Descend: the aircraft heads back toward the slower lower wind layer."
+          : "Bottom Turn: the aircraft turns in slower air and prepares for the next climb.";
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -499,7 +561,7 @@ export default function DynamicSoaring() {
               Albatross-Inspired Aircraft
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <ActionButton
               variant={running ? "ghost" : "primary"}
               onClick={() => setRunning(true)}
@@ -512,6 +574,18 @@ export default function DynamicSoaring() {
             </ActionButton>
             <ActionButton variant="alert" onClick={reset}>
               Reset
+            </ActionButton>
+            <ActionButton
+              onClick={() => setExplanationMode(false)}
+              active={!explanationMode}
+            >
+              Normal Speed
+            </ActionButton>
+            <ActionButton
+              onClick={() => setExplanationMode(true)}
+              active={explanationMode}
+            >
+              Explanation Speed
             </ActionButton>
           </div>
         </div>
@@ -533,7 +607,7 @@ export default function DynamicSoaring() {
             <SceneCanvas sim={sim} />
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {STAGES.map((st) => (
+            {STAGES.map((st, index) => (
               <span
                 key={st}
                 className={`tech-label rounded-md px-2 py-1 text-[10px] ${
@@ -542,9 +616,13 @@ export default function DynamicSoaring() {
                     : "border border-border text-muted-foreground"
                 }`}
               >
-                {st.toUpperCase()}
+                {index + 1}. {st.toUpperCase()}
               </span>
             ))}
+          </div>
+          <div className="mt-3 rounded-xl border border-primary/25 bg-primary/5 p-3">
+            <div className="tech-label mb-1 text-[10px] text-primary">GUIDED EXPLANATION</div>
+            <p className="text-xs leading-relaxed text-foreground sm:text-sm">{guidedText}</p>
           </div>
         </Panel>
 
@@ -609,20 +687,18 @@ export default function DynamicSoaring() {
               <DataCard label="Airspeed" value={ds.airspeed.toFixed(1)} unit="m/s" />
               <DataCard label="Altitude" value={ds.altitude.toFixed(1)} unit="m" />
               <DataCard label="Local Wind Speed" value={ds.localWind.toFixed(1)} unit="m/s" />
-              <DataCard label="Wind-Speed Difference" value={gradient.toFixed(0)} unit="m/s" />
-              <div className="col-span-2 space-y-2 sm:space-y-3">
+              <DataCard
+                label="Energy Change"
+                value={`${ds.energyRate >= 0 ? "+" : "−"}${Math.abs(ds.energyRate).toFixed(1)}`}
+                unit="units/s"
+                tone={ds.state === "gain" ? "good" : ds.state === "loss" ? "warn" : "default"}
+              />
+              <div className="col-span-2">
                 <DataCard
                   label="Net Flight Energy"
                   value={(Math.abs(ds.energy) < 0.05 ? 0 : ds.energy).toFixed(1)}
                   unit="units"
                   tone={ds.energy > 0 ? "good" : "warn"}
-                  big
-                />
-                <DataCard
-                  label="Energy Change"
-                  value={`${ds.energyRate >= 0 ? "+" : "\u2212"}${Math.abs(ds.energyRate).toFixed(1)}`}
-                  unit="units/s"
-                  tone={ds.state === "gain" ? "good" : ds.state === "loss" ? "warn" : "default"}
                 />
               </div>
             </div>
