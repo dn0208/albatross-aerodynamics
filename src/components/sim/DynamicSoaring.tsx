@@ -15,6 +15,8 @@ const PATH_STYLES: Record<
   aggressive: { label: "Aggressive", amplitude: 0.47, efficiency: 0.88, dragMultiplier: 1.55 },
 };
 
+type EnergyState = "gain" | "loss" | "neutral";
+
 type Craft = {
   x: number;
   y: number; // 0 = sea level, 1 = top of scene
@@ -23,7 +25,8 @@ type Craft = {
   altitude: number;
   localWind: number;
   energy: number;
-  gaining: boolean;
+  energyRate: number;
+  state: EnergyState;
   stage: Stage;
   trail: { x: number; y: number }[];
 };
@@ -47,15 +50,18 @@ function newCraft(stage: Stage): Craft {
     altitude: 6,
     localWind: 7,
     energy: 0,
-    gaining: false,
+    energyRate: 0,
+    state: "neutral",
     stage,
     trail: [],
   };
 }
 
+const BAND_HALF = 0.11; // shear band half-thickness in scene units
+
 function windAt(y: number, lowerWind: number, upperWind: number) {
-  // smooth shear between the two layers around y = 0.5
-  const k = 1 / (1 + Math.exp(-(y - 0.5) * 14));
+  // smooth shear across a band around y = 0.5
+  const k = 1 / (1 + Math.exp(-(y - 0.5) * 9));
   return lowerWind + (upperWind - lowerWind) * k;
 }
 
@@ -124,12 +130,23 @@ function drawScene(
   drawArrows(0.62, upperWind, 3);
   drawArrows(0.08, lowerWind, 3);
 
-  // shear boundary
+  // shear band (a region, not an infinitely thin line)
   const by = toPx(0.5);
+  const bTop = toPx(0.5 + BAND_HALF);
+  const bBot = toPx(0.5 - BAND_HALF);
+  const band = ctx.createLinearGradient(0, bTop, 0, bBot);
+  band.addColorStop(0, "rgba(255,196,110,0.05)");
+  band.addColorStop(0.5, "rgba(255,196,110,0.16)");
+  band.addColorStop(1, "rgba(255,196,110,0.05)");
+  ctx.fillStyle = band;
+  ctx.fillRect(0, bTop, w, bBot - bTop);
+  ctx.strokeStyle = "rgba(255,200,120,0.28)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, bTop, w - 1, bBot - bTop);
   ctx.save();
-  ctx.setLineDash([10, 8]);
-  ctx.strokeStyle = "rgba(255,200,120,0.9)";
-  ctx.lineWidth = 2;
+  ctx.setLineDash([9, 9]);
+  ctx.strokeStyle = "rgba(255,205,130,0.45)";
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(0, by);
   ctx.lineTo(w, by);
@@ -137,7 +154,7 @@ function drawScene(
   ctx.restore();
   ctx.fillStyle = "rgba(255,210,140,0.95)";
   ctx.font = "600 10px Inter, sans-serif";
-  ctx.fillText("Wind Gradient / Wind Shear Zone", 10, by - 6);
+  ctx.fillText("WIND GRADIENT / WIND SHEAR ZONE", 10, bTop - 5);
 
   ctx.fillStyle = "rgba(190,235,255,0.9)";
   ctx.font = "600 11px Inter, sans-serif";
@@ -230,15 +247,21 @@ function drawScene(
 
   ctx.restore();
 
-  // energy indicator
+  // energy state indicator
   ctx.font = "700 12px Inter, sans-serif";
-  if (craft.gaining) {
-    ctx.fillStyle = "rgba(90,235,215,1)";
-    ctx.fillText("+ ENERGY", px + 18, py - 14);
-  } else {
-    ctx.fillStyle = "rgba(255,150,130,0.95)";
-    ctx.fillText("ENERGY LOSS", px + 18, py - 14);
-  }
+  const label =
+    craft.state === "gain"
+      ? "\u2191 ENERGY GAIN"
+      : craft.state === "loss"
+        ? "\u2193 ENERGY LOSS"
+        : "\u2022 NEUTRAL";
+  ctx.fillStyle =
+    craft.state === "gain"
+      ? "rgba(90,235,215,1)"
+      : craft.state === "loss"
+        ? "rgba(255,150,110,0.98)"
+        : "rgba(165,195,215,0.9)";
+  ctx.fillText(label, px + 18, py - 14);
 }
 
 function SceneCanvas({ sim }: { sim: React.RefObject<DSState> }) {
@@ -402,15 +425,23 @@ export default function DynamicSoaring() {
       ds.localWind = windAt(ds.y, s.lowerWind, s.upperWind);
       ds.altitude = 3 + ds.y * 45;
 
-      // energy extraction happens most when crossing the shear boundary
-      const crossing = Math.abs(Math.sin(theta)) * (1 - Math.abs(ds.y - 0.5) * 1.35);
-      const gain = Math.max(0, crossing) * windDiff * cfg.efficiency * 0.5 * k;
-      const drag = 1.1 * k * cfg.dragMultiplier;
-      ds.gaining = gain > drag;
-      ds.energy += (gain - drag) * dt;
+      // energy is extracted only while crossing the shear band, not by sitting
+      // in the fast layer: needs vertical motion AND proximity to the band
+      const vertical = Math.abs(Math.sin(theta));
+      const inBand = Math.max(0, 1 - Math.abs(ds.y - 0.5) / (BAND_HALF * 2.2));
+      const crossing = vertical * inBand;
+      const gain = crossing * windDiff * cfg.efficiency * 0.55 * k;
+      const drag = 1.0 * k * cfg.dragMultiplier;
+      // turning losses peak at the top and bottom turns
+      const turning = Math.abs(Math.cos(theta));
+      const turnLoss = turning * 1.35 * k * cfg.dragMultiplier;
+      const rate = gain - drag - turnLoss;
+      ds.energyRate += (rate - ds.energyRate) * Math.min(1, dt * 4);
+      ds.energy += rate * dt;
+      ds.state = ds.energyRate > 0.35 ? "gain" : ds.energyRate < -0.35 ? "loss" : "neutral";
 
-      // airspeed: boosted by crossings and the fast upper layer
-      ds.airspeed = 14 + Math.max(0, crossing) * 14 + (ds.y > 0.5 ? 3.5 : 0) + Math.sin(theta) * 0.6;
+      // airspeed: live output — boosted by crossings and the fast upper layer
+      ds.airspeed = 14 + crossing * 14 + (ds.y > 0.5 ? 3.5 : 0) + Math.sin(theta) * 0.6;
 
       ds.trail.push({ x: ds.x, y: ds.y });
       if (ds.trail.length > 260) ds.trail.shift();
@@ -579,13 +610,19 @@ export default function DynamicSoaring() {
               <DataCard label="Altitude" value={ds.altitude.toFixed(1)} unit="m" />
               <DataCard label="Local Wind Speed" value={ds.localWind.toFixed(1)} unit="m/s" />
               <DataCard label="Wind-Speed Difference" value={gradient.toFixed(0)} unit="m/s" />
-              <div className="col-span-2">
+              <div className="col-span-2 space-y-2 sm:space-y-3">
                 <DataCard
-                  label="Energy Gained from Wind"
+                  label="Net Flight Energy"
                   value={(Math.abs(ds.energy) < 0.05 ? 0 : ds.energy).toFixed(1)}
                   unit="units"
                   tone={ds.energy > 0 ? "good" : "warn"}
                   big
+                />
+                <DataCard
+                  label="Energy Change"
+                  value={`${ds.energyRate >= 0 ? "+" : "\u2212"}${Math.abs(ds.energyRate).toFixed(1)}`}
+                  unit="units/s"
+                  tone={ds.state === "gain" ? "good" : ds.state === "loss" ? "warn" : "default"}
                 />
               </div>
             </div>
@@ -596,7 +633,7 @@ export default function DynamicSoaring() {
       {/* Bottom Section: Energy Graph */}
       <Panel className="p-4 sm:p-5">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h4 className="tech-label text-xs text-primary">Energy vs Time</h4>
+          <h4 className="tech-label text-xs text-primary">Net Flight Energy vs Time</h4>
           <div className="flex gap-4 text-[11px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <i className="inline-block h-2 w-4 rounded bg-accent" /> Albatross-inspired
