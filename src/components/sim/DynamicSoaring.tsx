@@ -50,15 +50,18 @@ function newCraft(stage: Stage): Craft {
     altitude: 6,
     localWind: 7,
     energy: 0,
-    gaining: false,
+    energyRate: 0,
+    state: "neutral",
     stage,
     trail: [],
   };
 }
 
+const BAND_HALF = 0.11; // shear band half-thickness in scene units
+
 function windAt(y: number, lowerWind: number, upperWind: number) {
-  // smooth shear between the two layers around y = 0.5
-  const k = 1 / (1 + Math.exp(-(y - 0.5) * 14));
+  // smooth shear across a band around y = 0.5
+  const k = 1 / (1 + Math.exp(-(y - 0.5) * 9));
   return lowerWind + (upperWind - lowerWind) * k;
 }
 
