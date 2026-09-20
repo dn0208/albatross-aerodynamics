@@ -689,9 +689,7 @@ export default function WindTunnel() {
                     {flex ? "Albatross-Inspired Aircraft" : "Traditional Aircraft"}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    {flex
-                      ? "Rear three-quarter • ~15° elevated • ~12° off-center • flexible tips"
-                      : "Rear three-quarter • ~15° elevated • ~12° off-center • rigid tips"}
+                    {flex ? "Flexible / hinged wingtips" : "Rigid / non-hinged wingtips"}
                   </p>
                 </div>
                 <span
@@ -718,8 +716,7 @@ export default function WindTunnel() {
         <Note>
           Both aircraft face exactly the same steady main airflow and the same target gust.
           Cyan streaks show the normal tunnel airflow moving along the aircraft's flight
-          path toward the nose in this rear three-quarter (~15° elevated, ~12° off-center)
-          view, while the orange vertical gust
+          path toward the nose, while the orange vertical gust
           rises from below. “Current Gust at Aircraft” increases only
           when that upward gust reaches the wings. The gust reaches both aircraft at the
           same moment, then passes and the aircraft settle. The rigid wingtip barely moves,
