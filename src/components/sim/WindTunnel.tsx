@@ -231,47 +231,71 @@ function TunnelCanvas({
       const frontPx = s.frontY * h;
       const bandH = h * 0.26;
 
-      const speedPx = (s.windSpeed / 30) * 3.6 * (1 + m.gust * 0.9);
+      // Main tunnel airflow: blue/cyan streaks move along the aircraft's
+      // flight direction (nose-to-tail in this rear perspective), NOT upward.
+      const speedPx = (s.windSpeed / 30) * 3.6;
       for (const p of parts) {
-        // near the gust front particles run faster and brighter
-        const dist = Math.abs(p.y - frontPx);
-        const near = s.showFront ? Math.max(0, 1 - dist / bandH) : 0;
-        p.y -= speedPx * p.v * (1 + near * 1.5);
-        if (p.y < -p.len) {
-          p.y = h + p.len;
+        p.y += speedPx * p.v;
+        if (p.y > h + p.len) {
+          p.y = -p.len;
           p.x = Math.random() * w;
         }
-        const turbulence = m.gust * 3.4 + near * 2.5;
-        const xx = p.x + Math.sin((p.y + s.t * 120) * 0.02) * turbulence;
-        const len = p.len * (1 + near * 0.8);
-        const g = ctx.createLinearGradient(xx, p.y + len, xx, p.y);
+        const xx = p.x + Math.sin((p.y + s.t * 90) * 0.015) * 1.2;
+        const len = p.len;
+        const g = ctx.createLinearGradient(xx, p.y - len, xx, p.y);
         g.addColorStop(0, "rgba(90,220,255,0)");
-        g.addColorStop(1, `rgba(${near > 0.2 ? "255,214,150" : "120,235,255"},${0.22 + m.gust * 0.4 + near * 0.5})`);
+        g.addColorStop(1, "rgba(120,235,255,0.42)");
         ctx.strokeStyle = g;
-        ctx.lineWidth = 1.5 + near * 1.1;
+        ctx.lineWidth = 1.4;
         ctx.beginPath();
-        ctx.moveTo(xx, p.y + len);
+        ctx.moveTo(xx, p.y - len);
         ctx.lineTo(xx, p.y);
         ctx.stroke();
       }
 
-      // translucent gust band travelling upward with the flow
+      // Label the steady main flow separately from the vertical gust.
+      ctx.fillStyle = "rgba(130,235,255,0.9)";
+      ctx.font = "600 10px Inter, sans-serif";
+      ctx.fillText("MAIN AIRFLOW ↓", Math.max(12, w - 112), 18);
+
+      // Vertical gust: orange band and upward streaks rise from below.
       if (s.showFront) {
         const bandGrad = ctx.createLinearGradient(0, frontPx + bandH, 0, frontPx - bandH * 0.25);
         bandGrad.addColorStop(0, "rgba(255,190,110,0)");
-        bandGrad.addColorStop(0.65, "rgba(255,190,110,0.16)");
+        bandGrad.addColorStop(0.65, "rgba(255,190,110,0.18)");
         bandGrad.addColorStop(1, "rgba(255,220,170,0)");
         ctx.fillStyle = bandGrad;
         ctx.fillRect(0, frontPx - bandH * 0.25, w, bandH * 1.25);
-        ctx.strokeStyle = "rgba(255,200,130,0.55)";
+
+        // Upward gust streaks are intentionally distinct from the cyan main flow.
+        const gustStrength = Math.max(0.15, m.gust);
+        ctx.strokeStyle = `rgba(255,205,135,${0.5 + gustStrength * 0.35})`;
+        ctx.lineWidth = 2;
+        for (let gx = 22; gx < w; gx += 34) {
+          const wobble = Math.sin(gx * 0.08 + s.t * 7) * 5;
+          const gy = frontPx + wobble;
+          ctx.beginPath();
+          ctx.moveTo(gx, gy + 28);
+          ctx.lineTo(gx, gy - 12);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(gx, gy - 12);
+          ctx.lineTo(gx - 4, gy - 5);
+          ctx.moveTo(gx, gy - 12);
+          ctx.lineTo(gx + 4, gy - 5);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = "rgba(255,200,130,0.7)";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(0, frontPx);
         ctx.lineTo(w, frontPx);
         ctx.stroke();
-        ctx.fillStyle = "rgba(255,200,130,0.95)";
-        ctx.font = "600 10px Inter, sans-serif";
-        ctx.fillText("GUST FRONT ↑", 12, Math.max(14, frontPx - 8));
+
+        ctx.fillStyle = "rgba(255,210,145,0.98)";
+        ctx.font = "700 10px Inter, sans-serif";
+        ctx.fillText("VERTICAL GUST ↑", 12, Math.max(14, frontPx - 8));
       }
 
       drawAircraft(ctx, w, h, {
@@ -604,13 +628,13 @@ export default function WindTunnel() {
       <Panel className="p-4 sm:p-5">
         <h4 className="tech-label mb-2 text-xs text-primary">Why it matters</h4>
         <Note>
-          Both aircraft face exactly the same wind speed and the same target gust.
-          “Current Gust at Aircraft” rises only when the animated gust front reaches the
-          wings, so the audience can see the event approach, impact, pass and recovery.
-          The gust front reaches both aircraft at the same moment, then the aircraft settle. The rigid wingtip barely moves, so the gust
-          energy goes straight into the wing root as a higher load, higher stress and
-          more fuselage shake. The hinged tip deflects smoothly instead, relieving part
-          of that peak load.
+          Both aircraft face exactly the same steady main airflow and the same target gust.
+          Cyan streaks show the normal tunnel airflow moving along the aircraft, while the
+          orange vertical gust rises from below. “Current Gust at Aircraft” increases only
+          when that upward gust reaches the wings. The gust reaches both aircraft at the
+          same moment, then passes and the aircraft settle. The rigid wingtip barely moves,
+          so more of the temporary load reaches the wing root; the hinged tip deflects
+          smoothly and relieves part of the peak load.
         </Note>
         <Note>
           <span className="mt-2 block opacity-80">
