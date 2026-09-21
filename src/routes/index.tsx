@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import WindTunnel from "@/components/sim/WindTunnel";
 import DynamicSoaring from "@/components/sim/DynamicSoaring";
 import { Panel } from "@/components/sim/ui";
@@ -32,6 +32,21 @@ type Section = (typeof NAV)[number];
 const REPO_RAW = "https://raw.githubusercontent.com/dn0208/albatross-aerodynamics/main";
 const PRESENTATION_PDF_FILE = "Noise Reduced Aerodynamic Biomimicry_Final.pdf";
 const PRESENTATION_PDF_URL = `${REPO_RAW}/Noise%20Reduced%20Aerodynamic%20Biomimicry_Final.pdf`;
+const PDFJS_SCRIPT_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+declare global {
+  interface Window {
+    pdfjsLib?: any;
+  }
+}
+
+function base64ToBlob(base64: string, type: string) {
+  const binary = atob(base64.replace(/\s/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type });
+}
 
 function ProjectImage({
   path,
@@ -238,6 +253,164 @@ function Simulation() {
   );
 }
 
+function loadPdfJs() {
+  return new Promise<any>((resolve, reject) => {
+    if (window.pdfjsLib) {
+      resolve(window.pdfjsLib);
+      return;
+    }
+
+    const existingScript = document.getElementById("pdfjs-script") as HTMLScriptElement | null;
+    if (existingScript) {
+      existingScript.addEventListener(
+        "load",
+        () => {
+          if (window.pdfjsLib) resolve(window.pdfjsLib);
+          else reject(new Error("PDF preview script loaded without PDF.js"));
+        },
+        { once: true },
+      );
+      existingScript.addEventListener("error", () => reject(new Error("PDF preview script failed")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "pdfjs-script";
+    script.src = PDFJS_SCRIPT_URL;
+    script.async = true;
+    script.onload = () => {
+      if (window.pdfjsLib) resolve(window.pdfjsLib);
+      else reject(new Error("PDF preview script loaded without PDF.js"));
+    };
+    script.onerror = () => reject(new Error("PDF preview script failed"));
+    document.body.appendChild(script);
+  });
+}
+
+function PdfPreview({ url }: { url: string }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const viewerRef = useRef<HTMLDivElement | null>(null);
+  const pdfRef = useRef<any>(null);
+  const renderTaskRef = useRef<any>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageCount, setPageCount] = useState(0);
+  const [status, setStatus] = useState("Loading PDF preview…");
+
+  useEffect(() => {
+    let cancelled = false;
+    setStatus("Loading PDF preview…");
+    setPageNumber(1);
+    setPageCount(0);
+    pdfRef.current = null;
+
+    loadPdfJs()
+      .then((pdfjs) => {
+        if (cancelled) return null;
+        pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+        return pdfjs.getDocument({ url }).promise;
+      })
+      .then((pdf) => {
+        if (!pdf || cancelled) return;
+        pdfRef.current = pdf;
+        setPageCount(pdf.numPages || 0);
+        setStatus("");
+      })
+      .catch(() => {
+        if (!cancelled) setStatus("PDF preview could not be loaded. Please use the Download button.");
+      });
+
+    return () => {
+      cancelled = true;
+      if (renderTaskRef.current?.cancel) renderTaskRef.current.cancel();
+    };
+  }, [url]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const renderPage = async () => {
+      const pdf = pdfRef.current;
+      const canvas = canvasRef.current;
+      if (!pdf || !canvas || pageCount === 0) return;
+
+      try {
+        setStatus(`Loading page ${pageNumber}…`);
+        if (renderTaskRef.current?.cancel) renderTaskRef.current.cancel();
+        const page = await pdf.getPage(pageNumber);
+        if (cancelled) return;
+
+        const containerWidth = viewerRef.current ? viewerRef.current.clientWidth : 900;
+        const baseViewport = page.getViewport({ scale: 1 });
+        const scale = Math.min(1.8, Math.max(0.55, (containerWidth - 24) / baseViewport.width));
+        const viewport = page.getViewport({ scale });
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas context unavailable");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, viewport.width, viewport.height);
+
+        const renderTask = page.render({ canvasContext: ctx, viewport });
+        renderTaskRef.current = renderTask;
+        await renderTask.promise;
+        if (!cancelled) {
+          setStatus("");
+          viewerRef.current?.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+        }
+      } catch (error) {
+        if (!cancelled && (error as { name?: string }).name !== "RenderingCancelledException") {
+          setStatus("PDF page could not be shown. Please use the Download button.");
+        }
+      }
+    };
+
+    renderPage();
+    window.addEventListener("resize", renderPage);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("resize", renderPage);
+      if (renderTaskRef.current?.cancel) renderTaskRef.current.cancel();
+    };
+  }, [pageNumber, pageCount]);
+
+  const goPrevious = () => setPageNumber((page) => Math.max(1, page - 1));
+  const goNext = () => setPageNumber((page) => Math.min(pageCount || page, page + 1));
+
+  return (
+    <Panel className="overflow-hidden p-3 sm:p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <button
+          onClick={goPrevious}
+          disabled={pageNumber <= 1 || pageCount === 0}
+          className="tech-label min-h-[38px] rounded-lg border border-border px-4 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Previous
+        </button>
+        <div className="tech-label rounded-full bg-secondary/30 px-3 py-2 text-[10px] text-foreground">
+          Page {pageCount ? pageNumber : "—"} / {pageCount || "—"}
+        </div>
+        <button
+          onClick={goNext}
+          disabled={pageNumber >= pageCount || pageCount === 0}
+          className="tech-label min-h-[38px] rounded-lg border border-border px-4 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Next
+        </button>
+      </div>
+      <div ref={viewerRef} className="max-h-[72vh] min-h-[520px] overflow-auto rounded-xl border border-border bg-white p-3">
+        {status ? <div className="mb-3 text-center text-xs text-muted-foreground">{status}</div> : null}
+        <canvas ref={canvasRef} className="mx-auto block rounded-md shadow-lg" />
+      </div>
+    </Panel>
+  );
+}
+
 function Presentation() {
   const downloadPdf = async () => {
     const response = await fetch(PRESENTATION_PDF_URL);
@@ -269,13 +442,7 @@ function Presentation() {
           </button>
         </div>
       </Panel>
-      <Panel className="overflow-hidden p-2 sm:p-3">
-        <iframe
-          title="Final project presentation PDF preview"
-          src={`${PRESENTATION_PDF_URL}#toolbar=1&navpanes=0`}
-          className="h-[70vh] min-h-[520px] w-full rounded-xl border border-border bg-white"
-        />
-      </Panel>
+      <PdfPreview url={PRESENTATION_PDF_URL} />
     </div>
   );
 }
