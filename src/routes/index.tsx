@@ -122,10 +122,10 @@ const DESIGNS = [
 ];
 
 const TEAM = [
-  { name: "Dhruv", roll: "C302", image: `${REPO_RAW}/Dhruv.jpeg` },
-  { name: "Arya", roll: "C322", image: `${REPO_RAW}/Arya.jpeg` },
-  { name: "Tanaya", roll: "C324", image: `${REPO_RAW}/Tanaya.jpeg` },
-  { name: "Daksh", roll: "C327", image: `${REPO_RAW}/Daksh.jpeg?v=daksh-latest` },
+  { name: "Dhruv Malkani", roll: "C302", image: `${REPO_RAW}/Dhruv.jpeg` },
+  { name: "Arya Mozar", roll: "C322", image: `${REPO_RAW}/Arya.jpeg` },
+  { name: "Tanaya Naik", roll: "C324", image: `${REPO_RAW}/Tanaya.jpeg` },
+  { name: "Daksh Nandan", roll: "C327", image: `${REPO_RAW}/Daksh.jpeg?v=daksh-latest` },
 ];
 
 const CITATIONS = [
