@@ -191,7 +191,7 @@ function Overview() {
 }
 
 function Simulation() {
-  const [simTab, setSimTab] = useState<"tunnel" | "soaring">("soaring");
+  const [simTab, setSimTab] = useState<"tunnel" | "soaring">("tunnel");
   return (
     <div className="space-y-5">
       <Panel className="p-5 sm:p-7">
