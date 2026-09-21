@@ -345,8 +345,7 @@ function Team() {
   return (
     <div className="space-y-5">
       <Panel className="p-5 sm:p-7">
-        <p className="tech-label text-[10px] text-accent sm:text-xs">Presented By</p>
-        <h2 className="mt-1 font-display text-2xl font-bold sm:text-3xl">Team</h2>
+        <h2 className="font-display text-2xl font-bold sm:text-3xl">Presented by</h2>
       </Panel>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {TEAM.map((member) => (
