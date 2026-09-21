@@ -91,7 +91,7 @@ function ProjectImage({
 const DESIGNS = [
   {
     title: "Shark-Skin Inspired Drag Reduction",
-    image: "/assets-b64/shark.jpg.b64",
+    image: `${REPO_RAW}/Shark%20Skin.jpg`,
     points: [
       "Shark skin has microscopic dermal denticles instead of a perfectly smooth surface.",
       "Riblet surfaces copy these grooves to reduce skin-friction drag.",
@@ -101,7 +101,7 @@ const DESIGNS = [
   },
   {
     title: "Albatross-Inspired Aircraft Wings",
-    image: "/assets-b64/albatross.jpg.b64",
+    image: `${REPO_RAW}/Albatross.jpg`,
     points: [
       "Dynamic soaring crosses slower and faster air layers to extract useful wind energy.",
       "Long, narrow wings help the albatross glide efficiently over long distances.",
@@ -111,7 +111,7 @@ const DESIGNS = [
   },
   {
     title: "Boxfish-Inspired Vehicle Design",
-    image: "/assets-b64/boxfish.jpg.b64",
+    image: `${REPO_RAW}/Boxfish.jpg`,
     points: [
       "The boxfish has a compact body, rigid shell and large internal volume.",
       "Its body form affects flow separation, wake formation and pressure drag.",
