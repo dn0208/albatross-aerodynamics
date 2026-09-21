@@ -223,7 +223,7 @@ function Simulation() {
               : "text-muted-foreground hover:bg-secondary"
           }`}
         >
-          ALBATROSS WINGS
+          DYNAMIC SOARING
         </button>
       </div>
       {simTab === "tunnel" ? <WindTunnel /> : <DynamicSoaring />}
