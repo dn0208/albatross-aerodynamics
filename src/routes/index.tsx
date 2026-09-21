@@ -460,7 +460,7 @@ function Citations() {
                   {citation.url}
                 </a>
               ) : (
-                <div className="mt-1 text-xs text-muted-foreground">Research paper reference from the PPT</div>
+                <div className="mt-1 text-xs text-muted-foreground">Research Paper</div>
               )}
             </div>
           </div>
