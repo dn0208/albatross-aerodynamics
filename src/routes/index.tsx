@@ -30,6 +30,8 @@ const NAV = ["Overview", "Simulation", "Presentation", "Citations", "Team"] as c
 type Section = (typeof NAV)[number];
 
 const REPO_RAW = "https://raw.githubusercontent.com/dn0208/albatross-aerodynamics/main";
+const PRESENTATION_PDF_FILE = "Noise Reduced Aerodynamic Biomimicry_Final.pdf";
+const PRESENTATION_PDF_URL = `${REPO_RAW}/Noise%20Reduced%20Aerodynamic%20Biomimicry_Final.pdf`;
 
 function base64ToBlob(base64: string, type: string) {
   const binary = atob(base64.replace(/\s/g, ""));
@@ -244,31 +246,19 @@ function Simulation() {
 }
 
 function Presentation() {
-  const [pdfUrl, setPdfUrl] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let objectUrl = "";
-    let alive = true;
-    fetch("/assets-b64/presentation.pdf.b64")
-      .then((r) => {
-        if (!r.ok) throw new Error("Presentation preview not found");
-        return r.text();
-      })
-      .then((b64) => {
-        if (!alive) return;
-        objectUrl = URL.createObjectURL(base64ToBlob(b64, "application/pdf"));
-        setPdfUrl(objectUrl);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-
-    return () => {
-      alive = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, []);
+  const downloadPdf = async () => {
+    const response = await fetch(PRESENTATION_PDF_URL);
+    if (!response.ok) return;
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = PRESENTATION_PDF_FILE;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   const downloadPpt = async () => {
     const response = await fetch("/assets-b64/presentation.pptx.b64");
@@ -295,24 +285,30 @@ function Presentation() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-display text-xl font-bold sm:text-2xl">Project Presentation</h2>
-            <p className="mt-1 text-sm text-muted-foreground">View the complete presentation directly on the website.</p>
+            <p className="mt-1 text-sm text-muted-foreground">View the final PDF directly on the website.</p>
           </div>
-          <button
-            onClick={downloadPpt}
-            className="tech-label min-h-[44px] rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/30%)] transition-transform hover:scale-[1.02]"
-          >
-            DOWNLOAD PPT
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={downloadPdf}
+              className="tech-label min-h-[44px] rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/30%)] transition-transform hover:scale-[1.02]"
+            >
+              DOWNLOAD PDF
+            </button>
+            <button
+              onClick={downloadPpt}
+              className="tech-label min-h-[44px] rounded-xl border border-primary/35 bg-secondary/20 px-5 text-xs font-semibold text-primary transition-transform hover:scale-[1.02]"
+            >
+              DOWNLOAD PPT
+            </button>
+          </div>
         </div>
       </Panel>
       <Panel className="overflow-hidden p-2 sm:p-3">
-        {loading ? (
-          <div className="flex min-h-[65vh] items-center justify-center text-sm text-muted-foreground">Loading presentation…</div>
-        ) : pdfUrl ? (
-          <iframe title="Project presentation" src={pdfUrl} className="h-[70vh] min-h-[520px] w-full rounded-xl border border-border bg-white" />
-        ) : (
-          <div className="flex min-h-[50vh] items-center justify-center p-8 text-center text-sm text-muted-foreground">Presentation preview could not be loaded.</div>
-        )}
+        <iframe
+          title="Final project presentation PDF"
+          src={PRESENTATION_PDF_URL}
+          className="h-[70vh] min-h-[520px] w-full rounded-xl border border-border bg-white"
+        />
       </Panel>
     </div>
   );
