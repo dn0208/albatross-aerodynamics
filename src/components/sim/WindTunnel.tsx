@@ -13,6 +13,7 @@ type Phase = "steady" | "approaching" | "impact" | "recovering";
 
 type SimState = {
   t: number;
+  running: boolean;
   windSpeed: number;
   gustIntensity: number;
   /** 0 = no event running, else elapsed seconds since APPLY GUST */
@@ -45,9 +46,6 @@ function drawAircraft(
 ) {
   const { deflection, shake, accent, time } = opts;
 
-  // Rear three-quarter view: ~15° elevated and ~12° off-center.
-  // The small azimuth offset makes wingtip motion, airflow direction,
-  // upward gust direction and fuselage vibration readable at the same time.
   const cameraElevationDeg = 15;
   const cameraAzimuthDeg = 12;
   const elevation = cameraElevationDeg / 90;
@@ -69,8 +67,6 @@ function drawAircraft(
   ctx.translate(cx, cy);
   ctx.rotate(roll);
 
-  // Fuselage seen from rear and slightly above: narrow toward the nose,
-  // wider near the tail, with a highlighted top surface.
   ctx.fillStyle = "rgba(88,138,170,0.82)";
   ctx.beginPath();
   ctx.moveTo(-rootChord * 0.34, -h * 0.25);
@@ -95,7 +91,6 @@ function drawAircraft(
     const sideInnerSpan = innerSpan * sideScale;
     const sideSpan = span * sideScale;
 
-    // Main wing panel: mostly rigid, with only a tiny elastic response.
     ctx.save();
     ctx.rotate(tipAngle * 0.08);
     const wingGrad = ctx.createLinearGradient(0, -rootChord, 0, rootChord);
@@ -111,8 +106,6 @@ function drawAircraft(
     ctx.closePath();
     ctx.fill();
 
-    // Outer tip hinged at innerSpan. Rotation is visually exaggerated only by
-    // perspective, not by changing the actual simulated angle.
     ctx.save();
     ctx.translate(dir * sideInnerSpan, wingY);
     ctx.rotate(tipAngle);
@@ -129,11 +122,10 @@ function drawAircraft(
     ctx.closePath();
     ctx.fill();
 
-    // Small upward face on the tip makes deflection readable from the rear.
     ctx.fillStyle = accent;
     ctx.globalAlpha = 0.55;
     ctx.fillRect(
-      dir > 0 ? (sideSpan - sideInnerSpan) - 2 : -(sideSpan - sideInnerSpan),
+      dir > 0 ? sideSpan - sideInnerSpan - 2 : -(sideSpan - sideInnerSpan),
       -tipChord * 0.18,
       dir > 0 ? 2 : -2,
       tipChord * 0.36,
@@ -141,7 +133,6 @@ function drawAircraft(
     ctx.globalAlpha = 1;
     ctx.restore();
 
-    // Hinge marker.
     ctx.fillStyle = accent;
     ctx.beginPath();
     ctx.arc(dir * sideInnerSpan, wingY, 3.5, 0, Math.PI * 2);
@@ -153,7 +144,6 @@ function drawAircraft(
   wing(-1);
   wing(1);
 
-  // Rear fuselage / tail cone nearest to the viewer.
   const bodyGrad = ctx.createRadialGradient(0, rootChord * 0.25, 2, 0, rootChord * 0.25, rootChord * 1.3);
   bodyGrad.addColorStop(0, "rgba(225,247,253,0.98)");
   bodyGrad.addColorStop(0.6, "rgba(115,160,190,0.95)");
@@ -163,7 +153,6 @@ function drawAircraft(
   ctx.ellipse(0, rootChord * 0.35, rootChord * 0.68, rootChord * 0.82, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Vertical tail viewed from behind.
   ctx.fillStyle = "rgba(135,205,225,0.75)";
   ctx.beginPath();
   ctx.moveTo(-rootChord * 0.12, rootChord * 0.15);
@@ -172,7 +161,6 @@ function drawAircraft(
   ctx.closePath();
   ctx.fill();
 
-  // Horizontal stabilizers.
   ctx.fillStyle = "rgba(115,185,210,0.72)";
   ctx.beginPath();
   ctx.moveTo(-rootChord * 0.2, rootChord * 0.25);
@@ -185,7 +173,6 @@ function drawAircraft(
   ctx.closePath();
   ctx.fill();
 
-  // Rear exhaust / tail opening confirms that the viewer is behind the aircraft.
   ctx.fillStyle = "rgba(15,35,52,0.95)";
   ctx.beginPath();
   ctx.ellipse(0, rootChord * 0.48, rootChord * 0.2, rootChord * 0.25, 0, 0, Math.PI * 2);
@@ -243,7 +230,6 @@ function TunnelCanvas({
       const m = kind === "flex" ? s.flex : s.rigid;
 
       ctx.clearRect(0, 0, w, h);
-      // tunnel walls
       const bg = ctx.createLinearGradient(0, 0, 0, h);
       bg.addColorStop(0, "rgba(16,34,56,0.9)");
       bg.addColorStop(0.5, "rgba(12,26,45,0.7)");
@@ -256,26 +242,21 @@ function TunnelCanvas({
 
       const frontPx = s.frontY * h;
       const bandH = h * 0.26;
+      const windMoving = s.running;
 
-      // Main tunnel airflow: cyan streaks move along the aircraft's longitudinal
-      // flight path. In this rear view the aircraft nose points toward the top of
-      // the canvas, so the main flow is drawn in that same on-screen direction.
       const speedPx = (s.windSpeed / 30) * 3.6;
       const vanishX = w / 2 - w * 0.035;
       for (const p of parts) {
-        p.y -= speedPx * p.v;
-        if (p.y < -p.len) {
-          p.y = h + p.len;
-          p.x = Math.random() * w;
+        if (windMoving) {
+          p.y -= speedPx * p.v;
+          if (p.y < -p.len) {
+            p.y = h + p.len;
+            p.x = Math.random() * w;
+          }
         }
 
-        // Slight perspective convergence makes the flow read as travelling
-        // along the fuselage rather than as a vertical gust.
         const depth = 1 - Math.max(0, Math.min(1, p.y / Math.max(1, h)));
-        const px =
-          p.x +
-          (vanishX - p.x) * depth * 0.18 -
-          depth * w * 0.025;
+        const px = p.x + (vanishX - p.x) * depth * 0.18 - depth * w * 0.025;
         const wobble = Math.sin((p.y + s.t * 90) * 0.015) * 0.8;
         const xx = px + wobble;
         const len = p.len * (0.85 + depth * 0.25);
@@ -290,7 +271,6 @@ function TunnelCanvas({
         ctx.lineTo(xx, p.y);
         ctx.stroke();
 
-        // Small arrowhead confirms the direction of the main flow.
         if (p.y > 18 && p.y < h - 18 && Math.round(p.x) % 3 === 0) {
           ctx.beginPath();
           ctx.moveTo(xx, p.y);
@@ -301,8 +281,6 @@ function TunnelCanvas({
         }
       }
 
-      // Stable reference marker behind the aircraft makes fuselage movement
-      // easy to compare between the rigid and flexible designs.
       ctx.save();
       ctx.strokeStyle = "rgba(170,210,225,0.16)";
       ctx.lineWidth = 1;
@@ -315,13 +293,11 @@ function TunnelCanvas({
       ctx.stroke();
       ctx.restore();
 
-      // Label the steady main flow separately from the vertical gust.
       ctx.fillStyle = "rgba(130,235,255,0.9)";
       ctx.font = "600 10px Inter, sans-serif";
       ctx.fillText("MAIN AIRFLOW ↑  ALONG FLIGHT PATH", Math.max(12, w - 206), 18);
 
-      // Vertical gust: orange band and upward streaks rise from below.
-      if (s.showFront) {
+      if (s.showFront && s.gustIntensity > 0) {
         const bandGrad = ctx.createLinearGradient(0, frontPx + bandH, 0, frontPx - bandH * 0.25);
         bandGrad.addColorStop(0, "rgba(255,190,110,0)");
         bandGrad.addColorStop(0.65, "rgba(255,190,110,0.18)");
@@ -329,7 +305,6 @@ function TunnelCanvas({
         ctx.fillStyle = bandGrad;
         ctx.fillRect(0, frontPx - bandH * 0.25, w, bandH * 1.25);
 
-        // Upward gust streaks are intentionally distinct from the cyan main flow.
         const gustStrength = Math.max(0.15, m.gust);
         ctx.strokeStyle = `rgba(255,205,135,${0.5 + gustStrength * 0.35})`;
         ctx.lineWidth = 2;
@@ -361,9 +336,7 @@ function TunnelCanvas({
       }
 
       const visualShake =
-        kind === "rigid"
-          ? Math.min(1.35, m.shake * 1.35)
-          : Math.min(0.55, m.shake * 0.42);
+        kind === "rigid" ? Math.min(1.35, m.shake * 1.35) : Math.min(0.55, m.shake * 0.42);
 
       drawAircraft(ctx, w, h, {
         deflection: m.deflection,
@@ -372,13 +345,9 @@ function TunnelCanvas({
         time: s.t,
       });
 
-      // Presentation cue: show the audience why the second fuselage looks steadier.
       const shakeActive = s.phase === "impact" || s.phase === "recovering";
       ctx.font = "700 11px Inter, sans-serif";
-      ctx.fillStyle =
-        kind === "flex"
-          ? "rgba(90,235,215,0.96)"
-          : "rgba(255,190,110,0.96)";
+      ctx.fillStyle = kind === "flex" ? "rgba(90,235,215,0.96)" : "rgba(255,190,110,0.96)";
       ctx.fillText(
         shakeActive
           ? kind === "flex"
@@ -427,6 +396,7 @@ export default function WindTunnel() {
 
   const sim = useRef<SimState>({
     t: 0,
+    running,
     windSpeed,
     gustIntensity,
     eventT: 0,
@@ -443,8 +413,10 @@ export default function WindTunnel() {
     flex: emptyMetrics(),
   });
 
+  sim.current.running = running;
   sim.current.windSpeed = windSpeed;
   sim.current.gustIntensity = gustIntensity;
+  if (gustIntensity === 0) sim.current.showFront = false;
 
   useEffect(() => {
     let raf = 0;
@@ -458,26 +430,25 @@ export default function WindTunnel() {
       if (!running) return;
       s.t += dt;
 
-      // ---- gust event timeline -------------------------------------------
-      // 0.0-1.1s approach, 1.1-2.4s impact/peak, 2.4-4.4s pass & recover
       let target = 0;
+      const canShowGust = s.gustIntensity > 0;
       if (s.eventActive) {
         s.eventT += dt;
         const e = s.eventT;
         if (e < 1.1) {
           s.phase = "approaching";
-          s.frontY = 1.3 - (e / 1.1) * 0.8; // travels up toward the aircraft
-          s.showFront = true;
+          s.frontY = 1.3 - (e / 1.1) * 0.8;
+          s.showFront = canShowGust;
           target = 0;
         } else if (e < 2.4) {
           s.phase = "impact";
           s.frontY = 0.5 - ((e - 1.1) / 1.3) * 0.35;
-          s.showFront = true;
+          s.showFront = canShowGust;
           target = 1;
         } else if (e < 4.6) {
           s.phase = "recovering";
           s.frontY = 0.15 - ((e - 2.4) / 2.2) * 0.45;
-          s.showFront = e < 3.4;
+          s.showFront = canShowGust && e < 3.4;
           target = 0;
         } else {
           s.eventActive = false;
@@ -492,16 +463,14 @@ export default function WindTunnel() {
         s.showFront = false;
       }
 
-      // smooth build-up / decay of the gust reaching the aircraft
       const k = target > s.env ? 3.2 : 1.5;
       s.env += (target - s.env) * Math.min(1, dt * k);
 
       const gi = s.gustIntensity / 100;
-      const gust = gi * s.env; // 0..1, identical for both aircraft
+      const gust = gi * s.env;
       const q = (s.windSpeed * s.windSpeed) / 900;
 
-      // ---- wingtip response (smooth easing, first-order lag) -------------
-      const rigidTarget = 1.0 * gust; // small elastic bending only, 0-1°
+      const rigidTarget = 1.0 * gust;
       const flexTarget = 26 * (1 - Math.exp(-2.4 * gust)) * Math.min(1, 0.5 + q * 0.6);
       s.tipRigid += (rigidTarget - s.tipRigid) * Math.min(1, dt * 5);
       s.tipFlex += (flexTarget - s.tipFlex) * Math.min(1, dt * 3);
@@ -535,8 +504,7 @@ export default function WindTunnel() {
       acc += dt;
       if (acc > 0.1) {
         acc = 0;
-        const reduction =
-          s.peakRigid > 0 ? ((s.peakRigid - s.peakFlex) / s.peakRigid) * 100 : 0;
+        const reduction = s.peakRigid > 0 ? ((s.peakRigid - s.peakFlex) / s.peakRigid) * 100 : 0;
         setReadout({ rigid, flex, phase: s.phase, reduction });
       }
     };
@@ -570,6 +538,15 @@ export default function WindTunnel() {
 
   const applyGust = () => {
     const s = sim.current;
+    if (s.gustIntensity <= 0) {
+      s.eventActive = false;
+      s.eventT = 0;
+      s.showFront = false;
+      s.env = 0;
+      s.phase = "steady";
+      setReadout({ rigid: s.rigid, flex: s.flex, phase: "steady", reduction: 0 });
+      return;
+    }
     s.eventActive = true;
     s.eventT = 0;
     s.frontY = 1.3;
@@ -583,11 +560,7 @@ export default function WindTunnel() {
     <div className="grid grid-cols-2 gap-2 sm:gap-3">
       <DataCard label="Wind Speed" value={windSpeed.toFixed(0)} unit="m/s" />
       <DataCard label="Gust Intensity (target)" value={gustIntensity.toFixed(0)} unit="%" />
-      <DataCard
-        label="Current Gust at Aircraft"
-        value={(m.gust * 100).toFixed(0)}
-        unit="%"
-      />
+      <DataCard label="Current Gust at Aircraft" value={(m.gust * 100).toFixed(0)} unit="%" />
       <DataCard
         label="Wingtip Deflection"
         value={m.deflection.toFixed(1)}
@@ -602,10 +575,10 @@ export default function WindTunnel() {
       />
       <DataCard
         label="Structural Stress"
-          value={m.stress.toFixed(0)}
-          unit="MPa"
-          tone={flex ? "good" : "warn"}
-        />
+        value={m.stress.toFixed(0)}
+        unit="MPa"
+        tone={flex ? "good" : "warn"}
+      />
       {flex ? (
         <div className="col-span-2">
           <DataCard
@@ -644,10 +617,7 @@ export default function WindTunnel() {
             onChange={setGustIntensity}
           />
           <div className="flex flex-wrap gap-2">
-            <ActionButton
-              variant={running ? "ghost" : "primary"}
-              onClick={() => setRunning(true)}
-            >
+            <ActionButton variant={running ? "ghost" : "primary"} onClick={() => setRunning(true)}>
               Start
             </ActionButton>
             <ActionButton onClick={() => setRunning(false)}>Pause</ActionButton>
@@ -694,9 +664,7 @@ export default function WindTunnel() {
                 </div>
                 <span
                   className={`tech-label rounded-full px-3 py-1 text-[10px] ${
-                    flex
-                      ? "bg-accent/15 text-accent"
-                      : "bg-[color:var(--warn)]/15 text-[color:var(--warn)]"
+                    flex ? "bg-accent/15 text-accent" : "bg-[color:var(--warn)]/15 text-[color:var(--warn)]"
                   }`}
                 >
                   {flex ? "Flexible" : "Rigid"}
@@ -716,18 +684,18 @@ export default function WindTunnel() {
         <Note>
           Both aircraft face exactly the same steady main airflow and the same target gust.
           Cyan streaks show the normal tunnel airflow moving along the aircraft's flight
-          path toward the nose, while the orange vertical gust
-          rises from below. “Current Gust at Aircraft” increases only
-          when that upward gust reaches the wings. The gust reaches both aircraft at the
-          same moment, then passes and the aircraft settle. The rigid wingtip barely moves,
-          so more of the temporary load reaches the wing root and the first fuselage visibly
-          shakes more. The hinged tip deflects smoothly, relieves part of the peak load, and
-          the second fuselage remains noticeably steadier with less visible vibration.
+          path toward the nose, while the orange vertical gust rises from below. “Current
+          Gust at Aircraft” increases only when that upward gust reaches the wings. The gust
+          reaches both aircraft at the same moment, then passes and the aircraft settle. The
+          rigid wingtip barely moves, so more of the temporary load reaches the wing root and
+          the first fuselage visibly shakes more. The hinged tip deflects smoothly, relieves
+          part of the peak load, and the second fuselage remains noticeably steadier with less
+          visible vibration.
         </Note>
         <Note>
           <span className="mt-2 block opacity-80">
-            All numbers shown, including the peak load reduction, are illustrative
-            simulation values for teaching — not verified real-world aircraft results.
+            All numbers shown, including the peak load reduction, are illustrative simulation
+            values for teaching — not verified real-world aircraft results.
           </span>
         </Note>
       </Panel>
