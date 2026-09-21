@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { ActionButton, DataCard, Note, Panel, Slider } from "./ui";
 
 const STAGES = ["Climb", "Top Turn", "Descend", "Bottom Turn"] as const;
 type Stage = (typeof STAGES)[number];
-
 type EnergyState = "gain" | "loss" | "neutral";
 
 type Craft = {
@@ -36,6 +35,7 @@ const SOARING_PATH = {
 };
 
 const BAND_HALF = 0.11;
+const DEFAULT_CYCLE_SPEED = 1.55;
 
 function newCraft(stage: Stage): Craft {
   return {
@@ -82,9 +82,8 @@ function drawScene(
 
   const seaTop = h * 0.88;
   const toPx = (cy: number) => seaTop - cy * (seaTop - h * 0.06);
+  const scroll = t * 86;
 
-  // Moving reference streaks: the air field scrolls backward, making the aircraft read as moving forward.
-  const scroll = t * 62;
   ctx.strokeStyle = "rgba(115,205,225,0.13)";
   ctx.lineWidth = 1;
   for (let i = 0; i < 8; i++) {
@@ -104,8 +103,8 @@ function drawScene(
   for (let i = 0; i < 3; i++) {
     ctx.beginPath();
     for (let x = -40; x <= w + 40; x += 8) {
-      const sx = x - wrapOffset(t * 55 + i * 35, 80);
-      const y = seaTop + 6 + i * 10 + Math.sin((sx + t * 75 + i * 40) * 0.03) * 2.5;
+      const sx = x - wrapOffset(t * 70 + i * 35, 80);
+      const y = seaTop + 6 + i * 10 + Math.sin((sx + t * 90 + i * 40) * 0.03) * 2.5;
       x === -40 ? ctx.moveTo(sx, y) : ctx.lineTo(sx, y);
     }
     ctx.stroke();
@@ -126,17 +125,6 @@ function drawScene(
   ctx.lineWidth = 1;
   ctx.strokeRect(0.5, bTop, w - 1, bBot - bTop);
 
-  // Animated texture inside the wind-gradient band, moving backward to show forward flight.
-  ctx.strokeStyle = inShearZone ? "rgba(255,220,145,0.45)" : "rgba(255,220,145,0.25)";
-  ctx.lineWidth = 1.1;
-  for (let i = 0; i < 9; i++) {
-    const x = w - wrapOffset(t * 82 + i * 115, w + 120);
-    ctx.beginPath();
-    ctx.moveTo(x, bTop + 4);
-    ctx.lineTo(x - 28, bBot - 4);
-    ctx.stroke();
-  }
-
   ctx.save();
   ctx.setLineDash([9, 9]);
   ctx.strokeStyle = "rgba(255,205,130,0.45)";
@@ -152,7 +140,7 @@ function drawScene(
     const len = Math.max(4, speed * 2.2);
     for (let r = 0; r < rows; r++) {
       const y = toPx(yFrac + r * 0.09);
-      const offset = wrapOffset(-t * speed * 14 + r * 60, w + 160);
+      const offset = wrapOffset(-t * speed * 18 + r * 60, w + 160);
       for (let k = -1; k < Math.ceil(w / 160) + 2; k++) {
         const x = offset + k * 160 - 80;
         ctx.strokeStyle = `rgba(120,235,255,${alpha})`;
@@ -179,22 +167,11 @@ function drawScene(
   ctx.fillStyle = inShearZone ? "rgba(255,225,160,1)" : "rgba(255,210,140,0.95)";
   ctx.font = "600 10px Inter, sans-serif";
   ctx.fillText("MOVING WIND GRADIENT / WIND SHEAR ZONE", 10, bTop - 5);
-  if (inShearZone) {
-    ctx.font = "700 12px Inter, sans-serif";
-    ctx.fillStyle = "rgba(255,228,165,1)";
-    ctx.fillText(
-      `WIND GRADIENT CROSSING  ${lowerWind.toFixed(0)} m/s → ${upperWind.toFixed(0)} m/s`,
-      Math.max(12, w * 0.32),
-      by - 10,
-    );
-  }
-
   ctx.fillStyle = "rgba(190,235,255,0.9)";
   ctx.font = "600 11px Inter, sans-serif";
   ctx.fillText(`Upper Layer  ${upperWind.toFixed(0)} m/s`, 10, toPx(0.85));
   ctx.fillText(`Lower Layer  ${lowerWind.toFixed(0)} m/s`, 10, toPx(0.2));
 
-  // Forward motion cue.
   ctx.strokeStyle = "rgba(90,235,215,0.9)";
   ctx.lineWidth = 2;
   const fx = Math.max(120, w - 190);
@@ -212,33 +189,6 @@ function drawScene(
   ctx.fill();
   ctx.font = "700 10px Inter, sans-serif";
   ctx.fillText("FORWARD FLIGHT", fx, fy - 8);
-
-  // Stage markers now sit on a forward wave path, not around a closed circle.
-  const stagePoints = [
-    { phase: 0.14, label: "1", name: "CLIMB" },
-    { phase: 0.38, label: "2", name: "TOP TURN" },
-    { phase: 0.62, label: "3", name: "DESCEND" },
-    { phase: 0.86, label: "4", name: "BOTTOM TURN" },
-  ];
-  stagePoints.forEach(({ phase, label, name }) => {
-    const markerX = (0.16 + phase * 0.56) * w;
-    const a = phase * Math.PI * 2;
-    const markerY = toPx(Math.max(0.06, Math.min(0.94, 0.5 - SOARING_PATH.amplitude * Math.cos(a))));
-    const active = craft.stage.toUpperCase() === name;
-    ctx.beginPath();
-    ctx.arc(markerX, markerY, active ? 11 : 9, 0, Math.PI * 2);
-    ctx.fillStyle = active ? "rgba(90,235,215,0.98)" : "rgba(15,45,65,0.88)";
-    ctx.fill();
-    ctx.strokeStyle = active ? "rgba(220,255,250,0.95)" : "rgba(120,210,225,0.75)";
-    ctx.stroke();
-    ctx.fillStyle = active ? "rgba(5,35,45,1)" : "rgba(215,245,250,0.95)";
-    ctx.font = "700 10px Inter, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(label, markerX, markerY + 0.5);
-    ctx.textAlign = "start";
-    ctx.textBaseline = "alphabetic";
-  });
 
   if (craft.trail.length > 1) {
     ctx.strokeStyle = "rgba(90,235,215,0.75)";
@@ -290,22 +240,6 @@ function drawScene(
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = "rgba(90,235,215,0.95)";
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.45, s * 1.25);
-  ctx.lineTo(-s * 0.75, s * 1.45);
-  ctx.lineTo(-s * 0.6, s * 1.5);
-  ctx.lineTo(-s * 0.32, s * 1.32);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.45, -s * 1.25);
-  ctx.lineTo(-s * 0.75, -s * 1.45);
-  ctx.lineTo(-s * 0.6, -s * 1.5);
-  ctx.lineTo(-s * 0.32, -s * 1.32);
-  ctx.closePath();
-  ctx.fill();
-
   ctx.fillStyle = "rgba(120,210,235,0.9)";
   ctx.beginPath();
   ctx.moveTo(-s * 0.6, 0);
@@ -328,7 +262,7 @@ function drawScene(
   ctx.fillText(reason, px + 18, py - 3);
 }
 
-function SceneCanvas({ sim }: { sim: React.RefObject<DSState> }) {
+function SceneCanvas({ sim }: { sim: RefObject<DSState> }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -361,7 +295,7 @@ function SceneCanvas({ sim }: { sim: React.RefObject<DSState> }) {
   return <canvas ref={ref} className="h-[240px] w-full sm:h-[310px] lg:h-[360px]" />;
 }
 
-function EnergyGraph({ sim }: { sim: React.RefObject<DSState> }) {
+function EnergyGraph({ sim }: { sim: RefObject<DSState> }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -431,12 +365,11 @@ export default function DynamicSoaring() {
   const [running, setRunning] = useState(true);
   const [lowerWind, setLowerWind] = useState(7);
   const [upperWind, setUpperWind] = useState(22);
-  const [explanationMode, setExplanationMode] = useState(false);
   const [, force] = useState(0);
 
   const sim = useRef<DSState>({
     t: 0,
-    cycleSpeed: 1,
+    cycleSpeed: DEFAULT_CYCLE_SPEED,
     lowerWind: 7,
     upperWind: 22,
     ds: newCraft("Climb"),
@@ -445,7 +378,7 @@ export default function DynamicSoaring() {
 
   sim.current.lowerWind = lowerWind;
   sim.current.upperWind = upperWind;
-  sim.current.cycleSpeed = explanationMode ? 0.6 : 1;
+  sim.current.cycleSpeed = DEFAULT_CYCLE_SPEED;
 
   useEffect(() => {
     let raf = 0;
@@ -471,7 +404,7 @@ export default function DynamicSoaring() {
       const theta = phase * Math.PI * 2;
       const A = SOARING_PATH.amplitude;
       ds.y = Math.max(0.05, Math.min(0.95, 0.5 - A * Math.cos(theta)));
-      ds.x = 0.62 + Math.sin(theta) * 0.025;
+      ds.x = 0.62 + Math.sin(theta) * 0.035;
 
       const verticalDirection = A * Math.sin(theta);
       ds.heading = Math.atan2(-verticalDirection * 0.9, 1.45);
@@ -491,9 +424,8 @@ export default function DynamicSoaring() {
       ds.state = ds.energyRate > 0.35 ? "gain" : ds.energyRate < -0.35 ? "loss" : "neutral";
       ds.airspeed = 14 + crossing * 14 + (ds.y > 0.5 ? 3.5 : 0) + Math.sin(theta) * 0.6;
 
-      // Trail scrolls backward so it reads as a path left behind during forward flight.
       ds.trail = ds.trail
-        .map((p) => ({ x: p.x - dt * 0.09 * k, y: p.y }))
+        .map((p) => ({ x: p.x - dt * 0.13 * k, y: p.y }))
         .filter((p) => p.x > -0.08);
       ds.trail.push({ x: ds.x, y: ds.y });
       if (ds.trail.length > 180) ds.trail.shift();
@@ -521,7 +453,6 @@ export default function DynamicSoaring() {
     sim.current.history = [];
     setLowerWind(7);
     setUpperWind(22);
-    setExplanationMode(false);
     setRunning(true);
   };
 
@@ -570,43 +501,9 @@ export default function DynamicSoaring() {
             <ActionButton variant="alert" onClick={reset}>
               Reset
             </ActionButton>
-            <ActionButton onClick={() => setExplanationMode(false)} active={!explanationMode}>
-              Normal Speed
-            </ActionButton>
-            <ActionButton onClick={() => setExplanationMode(true)} active={explanationMode}>
-              Explanation Speed
-            </ActionButton>
           </div>
         </div>
       </Panel>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <Panel className="p-4 sm:p-5">
-          <h4 className="tech-label mb-2 text-xs text-primary">What is Dynamic Soaring?</h4>
-          <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
-            Dynamic soaring is a flight technique that extracts useful energy by repeatedly crossing between
-            slower and faster moving air. The aircraft is still flying forward; the up-and-down motion is only
-            the repeated climb and descent through the moving wind gradient.
-          </p>
-        </Panel>
-        <Panel className="p-4 sm:p-5">
-          <h4 className="tech-label mb-2 text-xs text-primary">Energy Mechanism</h4>
-          <div className="grid gap-2 text-xs sm:grid-cols-3 sm:text-sm">
-            <div className="rounded-lg border border-accent/25 bg-accent/5 p-2">
-              <span className="font-semibold text-accent">Gradient crossing</span>
-              <div className="mt-1 text-muted-foreground">Energy gain</div>
-            </div>
-            <div className="rounded-lg border border-border bg-secondary/20 p-2">
-              <span className="font-semibold text-foreground">Turning + drag</span>
-              <div className="mt-1 text-muted-foreground">Energy loss</div>
-            </div>
-            <div className="rounded-lg border border-primary/25 bg-primary/5 p-2">
-              <span className="font-semibold text-primary">Forward repeat cycle</span>
-              <div className="mt-1 text-muted-foreground">Sustained flight</div>
-            </div>
-          </div>
-        </Panel>
-      </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px]">
         <Panel className="overflow-hidden p-3 sm:p-4">
@@ -673,6 +570,34 @@ export default function DynamicSoaring() {
             </div>
           </Panel>
         </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <Panel className="p-4 sm:p-5">
+          <h4 className="tech-label mb-2 text-xs text-primary">What is Dynamic Soaring?</h4>
+          <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+            Dynamic soaring is a flight technique that extracts useful energy by repeatedly crossing between
+            slower and faster moving air. The aircraft is still flying forward; the up-and-down motion is only
+            the repeated climb and descent through the moving wind gradient.
+          </p>
+        </Panel>
+        <Panel className="p-4 sm:p-5">
+          <h4 className="tech-label mb-2 text-xs text-primary">Energy Mechanism</h4>
+          <div className="grid gap-2 text-xs sm:grid-cols-3 sm:text-sm">
+            <div className="rounded-lg border border-accent/25 bg-accent/5 p-2">
+              <span className="font-semibold text-accent">Gradient crossing</span>
+              <div className="mt-1 text-muted-foreground">Energy gain</div>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/20 p-2">
+              <span className="font-semibold text-foreground">Turning + drag</span>
+              <div className="mt-1 text-muted-foreground">Energy loss</div>
+            </div>
+            <div className="rounded-lg border border-primary/25 bg-primary/5 p-2">
+              <span className="font-semibold text-primary">Forward repeat cycle</span>
+              <div className="mt-1 text-muted-foreground">Sustained flight</div>
+            </div>
+          </div>
+        </Panel>
       </div>
 
       <Panel className="p-4 sm:p-5">
