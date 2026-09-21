@@ -33,13 +33,6 @@ const REPO_RAW = "https://raw.githubusercontent.com/dn0208/albatross-aerodynamic
 const PRESENTATION_PDF_FILE = "Noise Reduced Aerodynamic Biomimicry_Final.pdf";
 const PRESENTATION_PDF_URL = `${REPO_RAW}/Noise%20Reduced%20Aerodynamic%20Biomimicry_Final.pdf`;
 
-function base64ToBlob(base64: string, type: string) {
-  const binary = atob(base64.replace(/\s/g, ""));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type });
-}
-
 function ProjectImage({
   path,
   alt,
@@ -260,53 +253,26 @@ function Presentation() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const downloadPpt = async () => {
-    const response = await fetch("/assets-b64/presentation.pptx.b64");
-    if (!response.ok) return;
-    const b64 = await response.text();
-    const url = URL.createObjectURL(
-      base64ToBlob(
-        b64,
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      ),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "Noise_Reduced_Aerodynamic_Biomimicry_Presentation.pptx";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
-
   return (
     <div className="space-y-4">
       <Panel className="p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-display text-xl font-bold sm:text-2xl">Project Presentation</h2>
-            <p className="mt-1 text-sm text-muted-foreground">View the final PDF directly on the website.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Preview the final PDF directly on the website.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={downloadPdf}
-              className="tech-label min-h-[44px] rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/30%)] transition-transform hover:scale-[1.02]"
-            >
-              DOWNLOAD PDF
-            </button>
-            <button
-              onClick={downloadPpt}
-              className="tech-label min-h-[44px] rounded-xl border border-primary/35 bg-secondary/20 px-5 text-xs font-semibold text-primary transition-transform hover:scale-[1.02]"
-            >
-              DOWNLOAD PPT
-            </button>
-          </div>
+          <button
+            onClick={downloadPdf}
+            className="tech-label min-h-[44px] rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/30%)] transition-transform hover:scale-[1.02]"
+          >
+            DOWNLOAD
+          </button>
         </div>
       </Panel>
       <Panel className="overflow-hidden p-2 sm:p-3">
         <iframe
-          title="Final project presentation PDF"
-          src={PRESENTATION_PDF_URL}
+          title="Final project presentation PDF preview"
+          src={`${PRESENTATION_PDF_URL}#toolbar=1&navpanes=0`}
           className="h-[70vh] min-h-[520px] w-full rounded-xl border border-border bg-white"
         />
       </Panel>
