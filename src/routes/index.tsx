@@ -51,6 +51,7 @@ function ProjectImage({
 
   useEffect(() => {
     let alive = true;
+
     if (!path.endsWith(".b64")) {
       setSrc(path);
       return () => {
@@ -79,7 +80,9 @@ function ProjectImage({
   return src ? (
     <img src={src} alt={alt} className={className} loading="lazy" />
   ) : (
-    <div className={`flex items-center justify-center bg-secondary/40 text-xs text-muted-foreground ${className}`}>
+    <div
+      className={`flex items-center justify-center bg-secondary/40 text-xs text-muted-foreground ${className}`}
+    >
       Loading image…
     </div>
   );
@@ -192,10 +195,24 @@ function Simulation() {
   return (
     <div>
       <div className="glass mb-5 grid grid-cols-2 gap-1 rounded-2xl p-1 sm:mb-7 sm:inline-grid">
-        <button onClick={() => setSimTab("tunnel")} className={`tech-label min-h-[46px] rounded-xl px-4 text-[10px] font-semibold transition-all sm:px-6 sm:text-xs ${simTab === "tunnel" ? "bg-primary text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/40%)]" : "text-muted-foreground hover:bg-secondary"}`}>
+        <button
+          onClick={() => setSimTab("tunnel")}
+          className={`tech-label min-h-[46px] rounded-xl px-4 text-[10px] font-semibold transition-all sm:px-6 sm:text-xs ${
+            simTab === "tunnel"
+              ? "bg-primary text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/40%)]"
+              : "text-muted-foreground hover:bg-secondary"
+          }`}
+        >
           WIND TUNNEL
         </button>
-        <button onClick={() => setSimTab("soaring")} className={`tech-label min-h-[46px] rounded-xl px-4 text-[10px] font-semibold transition-all sm:px-6 sm:text-xs ${simTab === "soaring" ? "bg-primary text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/40%)]" : "text-muted-foreground hover:bg-secondary"}`}>
+        <button
+          onClick={() => setSimTab("soaring")}
+          className={`tech-label min-h-[46px] rounded-xl px-4 text-[10px] font-semibold transition-all sm:px-6 sm:text-xs ${
+            simTab === "soaring"
+              ? "bg-primary text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/40%)]"
+              : "text-muted-foreground hover:bg-secondary"
+          }`}
+        >
           DYNAMIC SOARING
         </button>
       </div>
@@ -235,7 +252,12 @@ function Presentation() {
     const response = await fetch("/assets-b64/presentation.pptx.b64");
     if (!response.ok) return;
     const b64 = await response.text();
-    const url = URL.createObjectURL(base64ToBlob(b64, "application/vnd.openxmlformats-officedocument.presentationml.presentation"));
+    const url = URL.createObjectURL(
+      base64ToBlob(
+        b64,
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      ),
+    );
     const a = document.createElement("a");
     a.href = url;
     a.download = "Noise_Reduced_Aerodynamic_Biomimicry_Presentation.pptx";
@@ -253,7 +275,10 @@ function Presentation() {
             <h2 className="font-display text-xl font-bold sm:text-2xl">Project Presentation</h2>
             <p className="mt-1 text-sm text-muted-foreground">View the complete presentation directly on the website.</p>
           </div>
-          <button onClick={downloadPpt} className="tech-label min-h-[44px] rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/30%)] transition-transform hover:scale-[1.02]">
+          <button
+            onClick={downloadPpt}
+            className="tech-label min-h-[44px] rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/30%)] transition-transform hover:scale-[1.02]"
+          >
             DOWNLOAD PPT
           </button>
         </div>
@@ -305,12 +330,16 @@ function Team() {
       </Panel>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {TEAM.map((member) => (
-          <Panel key={member.roll} className="overflow-hidden p-0">
-            <ProjectImage path={member.image} alt={member.name} className="aspect-[4/5] w-full object-cover object-top" />
-            <div className="p-4 text-center">
-              <div className="font-display text-lg font-bold">{member.name}</div>
-              <div className="tech-label mt-1 text-xs text-accent">{member.roll}</div>
+          <Panel key={member.roll} className="p-5 text-center">
+            <div className="mx-auto flex justify-center rounded-full border border-primary/25 bg-secondary/20 p-2 shadow-[0_0_24px_oklch(0.8_0.14_200/18%)] sm:w-fit">
+              <ProjectImage
+                path={member.image}
+                alt={member.name}
+                className="h-52 w-52 rounded-full border-4 border-primary/45 object-cover object-top shadow-[0_0_22px_oklch(0.8_0.14_200/20%)] sm:h-56 sm:w-56 xl:h-60 xl:w-60"
+              />
             </div>
+            <div className="mt-4 font-display text-lg font-bold">{member.name}</div>
+            <div className="tech-label mt-1 text-xs text-accent">{member.roll}</div>
           </Panel>
         ))}
       </div>
@@ -331,7 +360,15 @@ function Index() {
           </button>
           <nav className="flex flex-wrap gap-1.5 lg:justify-end" aria-label="Project sections">
             {NAV.map((item) => (
-              <button key={item} onClick={() => setSection(item)} className={`tech-label min-h-[38px] rounded-lg px-3 text-[9px] font-semibold transition-all sm:px-4 sm:text-[10px] ${section === item ? "bg-primary text-primary-foreground shadow-[0_0_18px_oklch(0.8_0.14_200/30%)]" : "border border-border text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
+              <button
+                key={item}
+                onClick={() => setSection(item)}
+                className={`tech-label min-h-[38px] rounded-lg px-3 text-[9px] font-semibold transition-all sm:px-4 sm:text-[10px] ${
+                  section === item
+                    ? "bg-primary text-primary-foreground shadow-[0_0_18px_oklch(0.8_0.14_200/30%)]"
+                    : "border border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
                 {item}
               </button>
             ))}
