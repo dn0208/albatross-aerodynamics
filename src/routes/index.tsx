@@ -381,10 +381,6 @@ function Index() {
       {section === "Presentation" && <Presentation />}
       {section === "Citations" && <Citations />}
       {section === "Team" && <Team />}
-
-      <footer className="mt-8 pb-4 text-center text-[11px] text-muted-foreground">
-        College biomimicry & aerodynamics project • Simulation values are illustrative educational estimates.
-      </footer>
     </main>
   );
 }
