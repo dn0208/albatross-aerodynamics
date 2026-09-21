@@ -385,8 +385,8 @@ function PdfPreview({ url }: { url: string }) {
   const goNext = () => setPageNumber((page) => Math.min(pageCount || page, page + 1));
 
   return (
-    <Panel className="overflow-hidden p-3 sm:p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <Panel className="overflow-hidden p-2 sm:p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
         <button
           onClick={goPrevious}
           disabled={pageNumber <= 1 || pageCount === 0}
@@ -405,9 +405,9 @@ function PdfPreview({ url }: { url: string }) {
           Next
         </button>
       </div>
-      <div ref={viewerRef} className="min-h-[320px] overflow-hidden rounded-xl border border-border bg-white p-3 text-center sm:min-h-[420px]">
+      <div ref={viewerRef} className="min-h-[320px] overflow-hidden rounded-xl border border-white/25 bg-transparent p-1 text-center sm:min-h-[420px]">
         {status ? <div className="mb-3 text-center text-xs text-muted-foreground">{status}</div> : null}
-        <canvas ref={canvasRef} className="mx-auto block rounded-md shadow-lg" />
+        <canvas ref={canvasRef} className="mx-auto block rounded-md border-4 border-white bg-white shadow-lg" />
       </div>
     </Panel>
   );
