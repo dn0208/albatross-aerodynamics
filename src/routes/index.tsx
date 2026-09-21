@@ -16,8 +16,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Biomimicry & Aerodynamics Project" },
       {
         property: "og:description",
-        content:
-          "Interactive project website with overview, simulations, presentation, citations and team.",
+        content: "Interactive project website with overview, simulations, presentation, citations and team.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -35,17 +34,13 @@ const PRESENTATION_PDF_URL = `${REPO_RAW}/Noise%20Reduced%20Aerodynamic%20Biomim
 const PDFJS_SCRIPT_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PDFJS_WORKER_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
+const controlButtonClass =
+  "tech-label min-h-[38px] rounded-lg border border-border px-4 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40";
+
 declare global {
   interface Window {
     pdfjsLib?: any;
   }
-}
-
-function base64ToBlob(base64: string, type: string) {
-  const binary = atob(base64.replace(/\s/g, ""));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type });
 }
 
 function ProjectImage({
@@ -71,9 +66,9 @@ function ProjectImage({
 
     setSrc("");
     fetch(path)
-      .then((r) => {
-        if (!r.ok) throw new Error("Image asset not found");
-        return r.text();
+      .then((response) => {
+        if (!response.ok) throw new Error("Image asset not found");
+        return response.text();
       })
       .then((b64) => {
         if (alive) setSrc(`data:image/jpeg;base64,${b64.trim()}`);
@@ -90,9 +85,7 @@ function ProjectImage({
   return src ? (
     <img src={src} alt={alt} className={className} loading="lazy" />
   ) : (
-    <div
-      className={`flex items-center justify-center bg-secondary/40 text-xs text-muted-foreground ${className}`}
-    >
+    <div className={`flex items-center justify-center bg-secondary/40 text-xs text-muted-foreground ${className}`}>
       Loading image…
     </div>
   );
@@ -202,6 +195,7 @@ function Overview() {
 
 function Simulation() {
   const [simTab, setSimTab] = useState<"tunnel" | "soaring">("tunnel");
+
   return (
     <div className="space-y-5">
       <Panel className="p-5 sm:p-7">
@@ -383,26 +377,29 @@ function PdfPreview({ url }: { url: string }) {
 
   const goPrevious = () => setPageNumber((page) => Math.max(1, page - 1));
   const goNext = () => setPageNumber((page) => Math.min(pageCount || page, page + 1));
+  const jumpToPage = (targetPage: number) => setPageNumber(Math.min(pageCount || targetPage, Math.max(1, targetPage)));
 
   return (
     <Panel className="overflow-hidden p-2 sm:p-3">
       <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
-        <button
-          onClick={goPrevious}
-          disabled={pageNumber <= 1 || pageCount === 0}
-          className="tech-label min-h-[38px] rounded-lg border border-border px-4 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <button onClick={goPrevious} disabled={pageNumber <= 1 || pageCount === 0} className={controlButtonClass}>
           Previous
         </button>
         <div className="tech-label rounded-full bg-secondary/30 px-3 py-2 text-[10px] text-foreground">
           Page {pageCount ? pageNumber : "—"} / {pageCount || "—"}
         </div>
-        <button
-          onClick={goNext}
-          disabled={pageNumber >= pageCount || pageCount === 0}
-          className="tech-label min-h-[38px] rounded-lg border border-border px-4 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <button onClick={goNext} disabled={pageNumber >= pageCount || pageCount === 0} className={controlButtonClass}>
           Next
+        </button>
+        <div className="tech-label px-2 text-[10px] text-muted-foreground">Jump:</div>
+        <button onClick={() => jumpToPage(6)} disabled={pageCount === 0} className={controlButtonClass}>
+          Shark Skin
+        </button>
+        <button onClick={() => jumpToPage(18)} disabled={pageCount === 0} className={controlButtonClass}>
+          Albatross
+        </button>
+        <button onClick={() => jumpToPage(27)} disabled={pageCount === 0} className={controlButtonClass}>
+          Boxfish
         </button>
       </div>
       <div ref={viewerRef} className="min-h-[320px] overflow-hidden rounded-xl bg-transparent p-0 text-center sm:min-h-[420px]">
@@ -432,9 +429,7 @@ function Presentation() {
     <div className="space-y-4">
       <Panel className="p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-display text-xl font-bold sm:text-2xl">Presentation</h2>
-          </div>
+          <h2 className="font-display text-xl font-bold sm:text-2xl">Presentation</h2>
           <button
             onClick={downloadPdf}
             className="tech-label min-h-[44px] rounded-xl bg-primary px-5 text-xs font-semibold text-primary-foreground shadow-[0_0_24px_oklch(0.8_0.14_200/30%)] transition-transform hover:scale-[1.02]"
@@ -455,11 +450,15 @@ function Citations() {
       <div className="mt-5 space-y-3">
         {CITATIONS.map((citation, index) => (
           <div key={citation.label} className="flex gap-4 rounded-xl border border-border bg-secondary/20 p-4">
-            <span className="tech-label flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-xs text-primary">{index + 1}</span>
+            <span className="tech-label flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-xs text-primary">
+              {index + 1}
+            </span>
             <div className="min-w-0">
               <div className="text-sm font-semibold leading-relaxed">{citation.label}</div>
               {citation.url ? (
-                <a href={citation.url} target="_blank" rel="noreferrer" className="mt-1 block break-all text-xs text-accent hover:underline">{citation.url}</a>
+                <a href={citation.url} target="_blank" rel="noreferrer" className="mt-1 block break-all text-xs text-accent hover:underline">
+                  {citation.url}
+                </a>
               ) : (
                 <div className="mt-1 text-xs text-muted-foreground">Research paper reference from the PPT</div>
               )}
