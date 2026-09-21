@@ -226,7 +226,19 @@ function Simulation() {
           DYNAMIC SOARING
         </button>
       </div>
-      {simTab === "tunnel" ? <WindTunnel /> : <DynamicSoaring />}
+      {simTab === "tunnel" ? (
+        <WindTunnel />
+      ) : (
+        <div className="default-speed-only">
+          <style>{`
+            .default-speed-only button:nth-of-type(4),
+            .default-speed-only button:nth-of-type(5) {
+              display: none;
+            }
+          `}</style>
+          <DynamicSoaring />
+        </div>
+      )}
     </div>
   );
 }
@@ -309,8 +321,7 @@ function Presentation() {
 function Citations() {
   return (
     <Panel className="p-5 sm:p-7">
-      <p className="tech-label text-[10px] text-accent sm:text-xs">Project Sources</p>
-      <h2 className="mt-1 font-display text-2xl font-bold">Citations</h2>
+      <h2 className="font-display text-2xl font-bold">Citations</h2>
       <div className="mt-5 space-y-3">
         {CITATIONS.map((citation, index) => (
           <div key={citation.label} className="flex gap-4 rounded-xl border border-border bg-secondary/20 p-4">
@@ -336,7 +347,6 @@ function Team() {
       <Panel className="p-5 sm:p-7">
         <p className="tech-label text-[10px] text-accent sm:text-xs">Presented By</p>
         <h2 className="mt-1 font-display text-2xl font-bold sm:text-3xl">Team</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Team members and roll numbers from the first slide of the presentation.</p>
       </Panel>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {TEAM.map((member) => (
