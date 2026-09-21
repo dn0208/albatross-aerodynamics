@@ -405,7 +405,7 @@ function PdfPreview({ url }: { url: string }) {
           Next
         </button>
       </div>
-      <div ref={viewerRef} className="min-h-[320px] overflow-hidden rounded-xl border border-white/25 bg-transparent p-1 text-center sm:min-h-[420px]">
+      <div ref={viewerRef} className="min-h-[320px] overflow-hidden rounded-xl bg-transparent p-0 text-center sm:min-h-[420px]">
         {status ? <div className="mb-3 text-center text-xs text-muted-foreground">{status}</div> : null}
         <canvas ref={canvasRef} className="mx-auto block rounded-md border-4 border-white bg-white shadow-lg" />
       </div>
