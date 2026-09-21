@@ -191,10 +191,20 @@ function Overview() {
 }
 
 function Simulation() {
-  const [simTab, setSimTab] = useState<"tunnel" | "soaring">("tunnel");
+  const [simTab, setSimTab] = useState<"tunnel" | "soaring">("soaring");
   return (
-    <div>
-      <div className="glass mb-5 grid grid-cols-2 gap-1 rounded-2xl p-1 sm:mb-7 sm:inline-grid">
+    <div className="space-y-5">
+      <Panel className="p-5 sm:p-7">
+        <p className="tech-label text-[10px] text-accent sm:text-xs">Simulation</p>
+        <h2 className="mt-1 font-display text-2xl font-extrabold leading-tight glow-text sm:text-4xl">
+          Albatross Inspired Airplane Wings
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Interactive simulation showing how albatross-inspired wings use wind gradients for efficient flight.
+        </p>
+      </Panel>
+
+      <div className="glass grid grid-cols-2 gap-1 rounded-2xl p-1 sm:inline-grid">
         <button
           onClick={() => setSimTab("tunnel")}
           className={`tech-label min-h-[46px] rounded-xl px-4 text-[10px] font-semibold transition-all sm:px-6 sm:text-xs ${
@@ -213,7 +223,7 @@ function Simulation() {
               : "text-muted-foreground hover:bg-secondary"
           }`}
         >
-          DYNAMIC SOARING
+          ALBATROSS WINGS
         </button>
       </div>
       {simTab === "tunnel" ? <WindTunnel /> : <DynamicSoaring />}
