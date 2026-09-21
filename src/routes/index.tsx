@@ -341,7 +341,10 @@ function PdfPreview({ url }: { url: string }) {
 
         const containerWidth = viewerRef.current ? viewerRef.current.clientWidth : 900;
         const baseViewport = page.getViewport({ scale: 1 });
-        const scale = Math.min(1.8, Math.max(0.55, (containerWidth - 24) / baseViewport.width));
+        const maxPreviewHeight = Math.min(680, Math.max(320, window.innerHeight * 0.62));
+        const widthScale = (containerWidth - 24) / baseViewport.width;
+        const heightScale = maxPreviewHeight / baseViewport.height;
+        const scale = Math.min(2.2, Math.max(0.25, Math.min(widthScale, heightScale)));
         const viewport = page.getViewport({ scale });
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
@@ -349,6 +352,8 @@ function PdfPreview({ url }: { url: string }) {
         canvas.height = Math.floor(viewport.height * dpr);
         canvas.style.width = `${viewport.width}px`;
         canvas.style.height = `${viewport.height}px`;
+        canvas.style.maxWidth = "100%";
+        canvas.style.maxHeight = `${maxPreviewHeight}px`;
 
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("Canvas context unavailable");
@@ -358,10 +363,7 @@ function PdfPreview({ url }: { url: string }) {
         const renderTask = page.render({ canvasContext: ctx, viewport });
         renderTaskRef.current = renderTask;
         await renderTask.promise;
-        if (!cancelled) {
-          setStatus("");
-          viewerRef.current?.scrollTo({ top: 0, left: 0, behavior: "smooth" });
-        }
+        if (!cancelled) setStatus("");
       } catch (error) {
         if (!cancelled && (error as { name?: string }).name !== "RenderingCancelledException") {
           setStatus("PDF page could not be shown. Please use the Download button.");
@@ -403,7 +405,7 @@ function PdfPreview({ url }: { url: string }) {
           Next
         </button>
       </div>
-      <div ref={viewerRef} className="max-h-[72vh] min-h-[520px] overflow-auto rounded-xl border border-border bg-white p-3">
+      <div ref={viewerRef} className="min-h-[320px] overflow-hidden rounded-xl border border-border bg-white p-3 text-center sm:min-h-[420px]">
         {status ? <div className="mb-3 text-center text-xs text-muted-foreground">{status}</div> : null}
         <canvas ref={canvasRef} className="mx-auto block rounded-md shadow-lg" />
       </div>
@@ -431,8 +433,7 @@ function Presentation() {
       <Panel className="p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-display text-xl font-bold sm:text-2xl">Project Presentation</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Preview the final PDF directly on the website.</p>
+            <h2 className="font-display text-xl font-bold sm:text-2xl">Presentation</h2>
           </div>
           <button
             onClick={downloadPdf}
