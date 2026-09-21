@@ -125,7 +125,7 @@ const TEAM = [
   { name: "Dhruv", roll: "C302", image: `${REPO_RAW}/Dhruv.jpeg` },
   { name: "Arya", roll: "C322", image: `${REPO_RAW}/Arya.jpeg` },
   { name: "Tanaya", roll: "C324", image: `${REPO_RAW}/Tanaya.jpeg` },
-  { name: "Daksh", roll: "C327", image: `${REPO_RAW}/Daksh.jpeg` },
+  { name: "Daksh", roll: "C327", image: `${REPO_RAW}/Daksh.jpeg?v=daksh-latest` },
 ];
 
 const CITATIONS = [
