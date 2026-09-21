@@ -122,10 +122,10 @@ const DESIGNS = [
 ];
 
 const TEAM = [
-  { name: "Dhruv", roll: "C302", image: `${REPO_RAW}/Dhruv.jpeg`, imageClass: "object-center" },
-  { name: "Arya", roll: "C322", image: `${REPO_RAW}/Arya.jpeg`, imageClass: "object-top" },
-  { name: "Tanaya", roll: "C324", image: `${REPO_RAW}/Tanaya.jpeg`, imageClass: "object-top" },
-  { name: "Daksh", roll: "C327", image: `${REPO_RAW}/Daksh.jpeg`, imageClass: "object-top" },
+  { name: "Dhruv", roll: "C302", image: `${REPO_RAW}/Dhruv.jpeg` },
+  { name: "Arya", roll: "C322", image: `${REPO_RAW}/Arya.jpeg` },
+  { name: "Tanaya", roll: "C324", image: `${REPO_RAW}/Tanaya.jpeg` },
+  { name: "Daksh", roll: "C327", image: `${REPO_RAW}/Daksh.jpeg` },
 ];
 
 const CITATIONS = [
@@ -335,7 +335,7 @@ function Team() {
               <ProjectImage
                 path={member.image}
                 alt={member.name}
-                className={`h-52 w-52 rounded-full border-4 border-primary/45 object-cover ${member.imageClass} shadow-[0_0_22px_oklch(0.8_0.14_200/20%)] sm:h-56 sm:w-56 xl:h-60 xl:w-60`}
+                className="h-52 w-52 rounded-full border-4 border-primary/45 object-cover object-top shadow-[0_0_22px_oklch(0.8_0.14_200/20%)] sm:h-56 sm:w-56 xl:h-60 xl:w-60"
               />
             </div>
             <div className="mt-4 font-display text-lg font-bold">{member.name}</div>
