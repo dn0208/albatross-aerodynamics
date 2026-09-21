@@ -554,7 +554,7 @@ export default function DynamicSoaring() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="font-display text-lg font-extrabold leading-tight glow-text sm:text-2xl">
-              dynamic soaring
+              DYNAMIC SOARING
             </h2>
             <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
               Albatross-Inspired Aircraft
