@@ -582,7 +582,7 @@ export default function WindTunnel() {
       {flex ? (
         <div className="col-span-2">
           <DataCard
-            label="Peak Wing-Root Load Reduction (simulated)"
+            label="Wing Stress Reduction"
             value={readout.reduction.toFixed(1)}
             unit="%"
             tone="good"
