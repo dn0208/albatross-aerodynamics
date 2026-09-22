@@ -487,6 +487,7 @@ function Team() {
               />
             </div>
             <div className="mt-4 font-display text-lg font-bold">{member.name}</div>
+            <div className="mt-1 text-sm text-muted-foreground">B.Tech CE, Div: E, Batch: E1</div>
             <div className="tech-label mt-1 text-xs text-accent">{member.roll}</div>
           </Panel>
         ))}
