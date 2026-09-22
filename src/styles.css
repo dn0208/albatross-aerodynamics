@@ -131,3 +131,7 @@
     cursor: pointer;
   }
 }
+
+.default-speed-only > div > :last-child {
+  display: none !important;
+}
