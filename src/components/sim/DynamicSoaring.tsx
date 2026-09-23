@@ -83,6 +83,7 @@ function drawScene(
   const seaTop = h * 0.88;
   const toPx = (cy: number) => seaTop - cy * (seaTop - h * 0.06);
   const scroll = t * 86;
+  const gradient = upperWind - lowerWind;
 
   ctx.strokeStyle = "rgba(115,205,225,0.13)";
   ctx.lineWidth = 1;
@@ -166,7 +167,7 @@ function drawScene(
 
   ctx.fillStyle = inShearZone ? "rgba(255,225,160,1)" : "rgba(255,210,140,0.95)";
   ctx.font = "600 10px Inter, sans-serif";
-  ctx.fillText("MOVING WIND GRADIENT / WIND SHEAR ZONE", 10, bTop - 5);
+  ctx.fillText(`Wind Gradient Speed  ${gradient.toFixed(0)} m/s`, 10, bTop - 5);
   ctx.fillStyle = "rgba(190,235,255,0.9)";
   ctx.font = "600 11px Inter, sans-serif";
   ctx.fillText(`Upper Layer  ${upperWind.toFixed(0)} m/s`, 10, toPx(0.85));
