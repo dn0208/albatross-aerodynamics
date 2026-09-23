@@ -83,7 +83,6 @@ function drawScene(
   const seaTop = h * 0.88;
   const toPx = (cy: number) => seaTop - cy * (seaTop - h * 0.06);
   const scroll = t * 86;
-  const gradientDiff = upperWind - lowerWind;
 
   ctx.strokeStyle = "rgba(115,205,225,0.13)";
   ctx.lineWidth = 1;
@@ -172,50 +171,6 @@ function drawScene(
   ctx.font = "600 11px Inter, sans-serif";
   ctx.fillText(`Upper Layer  ${upperWind.toFixed(0)} m/s`, 10, toPx(0.85));
   ctx.fillText(`Lower Layer  ${lowerWind.toFixed(0)} m/s`, 10, toPx(0.2));
-
-  const markerX = Math.min(w - 46, 285);
-  const markerTop = toPx(0.85);
-  const markerBottom = toPx(0.2);
-  ctx.save();
-  ctx.strokeStyle = "rgba(255,215,145,0.92)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(markerX, markerTop);
-  ctx.lineTo(markerX, markerBottom);
-  ctx.moveTo(markerX - 6, markerTop);
-  ctx.lineTo(markerX + 6, markerTop);
-  ctx.moveTo(markerX - 6, markerBottom);
-  ctx.lineTo(markerX + 6, markerBottom);
-  ctx.stroke();
-  ctx.translate(markerX + 18, (markerTop + markerBottom) / 2 + 44);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillStyle = "rgba(255,225,165,0.98)";
-  ctx.font = "700 10px Inter, sans-serif";
-  ctx.fillText(`DIFFERENCE: ${gradientDiff.toFixed(0)} m/s`, 0, 0);
-  ctx.restore();
-
-  const boxW = Math.min(300, w - 20);
-  const boxX = 10;
-  const boxY = Math.min(h - 92, bBot + 10);
-  ctx.save();
-  ctx.fillStyle = "rgba(8,24,42,0.72)";
-  ctx.strokeStyle = "rgba(255,205,130,0.5)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.roundRect(boxX, boxY, boxW, 58, 12);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "rgba(255,220,155,1)";
-  ctx.font = "700 10px Inter, sans-serif";
-  ctx.fillText("WIND GRADIENT DIFFERENCE", boxX + 12, boxY + 18);
-  ctx.fillStyle = "rgba(235,250,255,0.96)";
-  ctx.font = "700 13px Inter, sans-serif";
-  ctx.fillText(
-    `${upperWind.toFixed(0)} - ${lowerWind.toFixed(0)} = ${gradientDiff.toFixed(0)} m/s`,
-    boxX + 12,
-    boxY + 40,
-  );
-  ctx.restore();
 
   ctx.strokeStyle = "rgba(90,235,215,0.9)";
   ctx.lineWidth = 2;
@@ -449,7 +404,7 @@ export default function DynamicSoaring() {
   const gradient = upperWind - lowerWind;
   const crossingNow = Math.abs(ds.y - 0.5) <= BAND_HALF * 1.15;
   const guidedText = crossingNow
-    ? `Wind-gradient crossing: local wind is changing between ${lowerWind.toFixed(0)} and ${upperWind.toFixed(0)} m/s. The wind gradient difference is ${gradient.toFixed(0)} m/s, so useful wind energy can be extracted here.`
+    ? `Wind-gradient crossing: local wind is changing between ${lowerWind.toFixed(0)} and ${upperWind.toFixed(0)} m/s. This is where useful wind energy can be extracted.`
     : ds.stage === "Climb"
       ? "Climb: the aircraft flies forward while rising from slower air toward the faster upper wind."
       : ds.stage === "Top Turn"
@@ -530,13 +485,7 @@ export default function DynamicSoaring() {
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <DataCard label="Lower Wind" value={lowerWind.toFixed(0)} unit="m/s" />
               <DataCard label="Upper Wind" value={upperWind.toFixed(0)} unit="m/s" />
-              <DataCard label="Gradient Difference" value={gradient.toFixed(0)} unit="m/s" tone="good" />
-            </div>
-            <div className="mt-3 rounded-xl border border-accent/30 bg-accent/5 p-3">
-              <div className="tech-label mb-1 text-[10px] text-accent">Upper Wind - Lower Wind</div>
-              <p className="text-xs font-semibold leading-relaxed text-foreground sm:text-sm">
-                {upperWind.toFixed(0)} m/s - {lowerWind.toFixed(0)} m/s = {gradient.toFixed(0)} m/s wind gradient difference
-              </p>
+              <DataCard label="Wind Gradient Speed" value={gradient.toFixed(0)} unit="m/s" tone="good" />
             </div>
           </Panel>
 
