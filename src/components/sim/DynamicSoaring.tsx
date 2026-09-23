@@ -83,6 +83,7 @@ function drawScene(
   const seaTop = h * 0.88;
   const toPx = (cy: number) => seaTop - cy * (seaTop - h * 0.06);
   const scroll = t * 86;
+  const gradientDiff = upperWind - lowerWind;
 
   ctx.strokeStyle = "rgba(115,205,225,0.13)";
   ctx.lineWidth = 1;
@@ -171,6 +172,50 @@ function drawScene(
   ctx.font = "600 11px Inter, sans-serif";
   ctx.fillText(`Upper Layer  ${upperWind.toFixed(0)} m/s`, 10, toPx(0.85));
   ctx.fillText(`Lower Layer  ${lowerWind.toFixed(0)} m/s`, 10, toPx(0.2));
+
+  const markerX = Math.min(w - 46, 285);
+  const markerTop = toPx(0.85);
+  const markerBottom = toPx(0.2);
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,215,145,0.92)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(markerX, markerTop);
+  ctx.lineTo(markerX, markerBottom);
+  ctx.moveTo(markerX - 6, markerTop);
+  ctx.lineTo(markerX + 6, markerTop);
+  ctx.moveTo(markerX - 6, markerBottom);
+  ctx.lineTo(markerX + 6, markerBottom);
+  ctx.stroke();
+  ctx.translate(markerX + 18, (markerTop + markerBottom) / 2 + 44);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = "rgba(255,225,165,0.98)";
+  ctx.font = "700 10px Inter, sans-serif";
+  ctx.fillText(`DIFFERENCE: ${gradientDiff.toFixed(0)} m/s`, 0, 0);
+  ctx.restore();
+
+  const boxW = Math.min(300, w - 20);
+  const boxX = 10;
+  const boxY = Math.min(h - 92, bBot + 10);
+  ctx.save();
+  ctx.fillStyle = "rgba(8,24,42,0.72)";
+  ctx.strokeStyle = "rgba(255,205,130,0.5)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxW, 58, 12);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,220,155,1)";
+  ctx.font = "700 10px Inter, sans-serif";
+  ctx.fillText("WIND GRADIENT DIFFERENCE", boxX + 12, boxY + 18);
+  ctx.fillStyle = "rgba(235,250,255,0.96)";
+  ctx.font = "700 13px Inter, sans-serif";
+  ctx.fillText(
+    `${upperWind.toFixed(0)} - ${lowerWind.toFixed(0)} = ${gradientDiff.toFixed(0)} m/s`,
+    boxX + 12,
+    boxY + 40,
+  );
+  ctx.restore();
 
   ctx.strokeStyle = "rgba(90,235,215,0.9)";
   ctx.lineWidth = 2;
@@ -295,72 +340,6 @@ function SceneCanvas({ sim }: { sim: RefObject<DSState> }) {
   return <canvas ref={ref} className="h-[240px] w-full sm:h-[310px] lg:h-[360px]" />;
 }
 
-function EnergyGraph({ sim }: { sim: RefObject<DSState> }) {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    let raf = 0;
-    let w = 0;
-    let h = 0;
-    const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const rect = canvas.getBoundingClientRect();
-      w = rect.width;
-      h = rect.height;
-      canvas.width = Math.max(1, Math.floor(w * dpr));
-      canvas.height = Math.max(1, Math.floor(h * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(canvas);
-    const loop = () => {
-      raf = requestAnimationFrame(loop);
-      const hist = sim.current.history;
-      ctx.clearRect(0, 0, w, h);
-      ctx.strokeStyle = "rgba(140,200,225,0.15)";
-      ctx.lineWidth = 1;
-      for (let i = 1; i < 4; i++) {
-        const y = (h / 4) * i;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
-      }
-      if (hist.length < 2) return;
-      let min = 0;
-      let max = 1;
-      for (const p of hist) {
-        min = Math.min(min, p.ds);
-        max = Math.max(max, p.ds);
-      }
-      const pad = (max - min) * 0.12 + 1;
-      min -= pad;
-      max += pad;
-      const t0 = hist[0]!.t;
-      const t1 = Math.max(hist[hist.length - 1]!.t, t0 + 1);
-      ctx.strokeStyle = "rgba(90,235,215,1)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      hist.forEach((p, i) => {
-        const x = ((p.t - t0) / (t1 - t0)) * w;
-        const y = h - ((p.ds - min) / (max - min)) * h;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-    };
-    loop();
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
-  }, [sim]);
-  return <canvas ref={ref} className="h-[150px] w-full sm:h-[180px]" />;
-}
-
 export default function DynamicSoaring() {
   const [running, setRunning] = useState(true);
   const [lowerWind, setLowerWind] = useState(7);
@@ -470,7 +449,7 @@ export default function DynamicSoaring() {
   const gradient = upperWind - lowerWind;
   const crossingNow = Math.abs(ds.y - 0.5) <= BAND_HALF * 1.15;
   const guidedText = crossingNow
-    ? `Wind-gradient crossing: local wind is changing between ${lowerWind.toFixed(0)} and ${upperWind.toFixed(0)} m/s. This is where useful wind energy can be extracted.`
+    ? `Wind-gradient crossing: local wind is changing between ${lowerWind.toFixed(0)} and ${upperWind.toFixed(0)} m/s. The wind gradient difference is ${gradient.toFixed(0)} m/s, so useful wind energy can be extracted here.`
     : ds.stage === "Climb"
       ? "Climb: the aircraft flies forward while rising from slower air toward the faster upper wind."
       : ds.stage === "Top Turn"
@@ -551,7 +530,13 @@ export default function DynamicSoaring() {
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <DataCard label="Lower Wind" value={lowerWind.toFixed(0)} unit="m/s" />
               <DataCard label="Upper Wind" value={upperWind.toFixed(0)} unit="m/s" />
-              <DataCard label="Wind Gradient" value={gradient.toFixed(0)} unit="m/s" tone="good" />
+              <DataCard label="Gradient Difference" value={gradient.toFixed(0)} unit="m/s" tone="good" />
+            </div>
+            <div className="mt-3 rounded-xl border border-accent/30 bg-accent/5 p-3">
+              <div className="tech-label mb-1 text-[10px] text-accent">Upper Wind - Lower Wind</div>
+              <p className="text-xs font-semibold leading-relaxed text-foreground sm:text-sm">
+                {upperWind.toFixed(0)} m/s - {lowerWind.toFixed(0)} m/s = {gradient.toFixed(0)} m/s wind gradient difference
+              </p>
             </div>
           </Panel>
 
@@ -599,27 +584,6 @@ export default function DynamicSoaring() {
           </div>
         </Panel>
       </div>
-
-      <Panel className="p-4 sm:p-5">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h4 className="tech-label text-xs text-primary">Energy Trend vs Time</h4>
-          <div className="flex gap-4 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <i className="inline-block h-2 w-4 rounded bg-accent" /> Albatross-inspired
-            </span>
-          </div>
-        </div>
-        <EnergyGraph sim={sim} />
-        <div className="mt-3 rounded-xl border border-accent/30 bg-accent/5 p-3">
-          <div className="tech-label mb-1 text-[10px] text-accent">MAIN TAKEAWAY</div>
-          <p className="text-xs font-semibold leading-relaxed text-foreground sm:text-sm">
-            The aircraft moves forward while repeatedly crossing the wind-speed gradient — it is not simply flying in a closed circle.
-          </p>
-        </div>
-        <Note>
-          The moving background and scrolling trail are presentation cues showing forward flight through the air mass. Energy is still only extracted while the aircraft crosses the wind gradient; drag and turning losses always apply. Values are simulation estimates.
-        </Note>
-      </Panel>
     </div>
   );
 }
