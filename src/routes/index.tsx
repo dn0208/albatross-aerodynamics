@@ -125,10 +125,10 @@ const DESIGNS = [
 ];
 
 const TEAM = [
-  { name: "Dhruv Malkani", roll: "C302", image: `${REPO_RAW}/Dhruv.jpeg` },
-  { name: "Arya Mozar", roll: "C322", image: `${REPO_RAW}/Arya.jpeg` },
-  { name: "Tanaya Naik", roll: "C324", image: `${REPO_RAW}/Tanaya.jpeg` },
-  { name: "Daksh Nandan", roll: "C327", image: `${REPO_RAW}/Daksh.jpeg?v=daksh-latest` },
+  { name: "Dhruv Malkani", roll: "C302", sapId: "70022600071", image: `${REPO_RAW}/Dhruv.jpeg` },
+  { name: "Arya Mozar", roll: "C322", sapId: "70022600401", image: `${REPO_RAW}/Arya.jpeg` },
+  { name: "Tanaya Naik", roll: "C324", sapId: "70022600403", image: `${REPO_RAW}/Tanaya.jpeg` },
+  { name: "Daksh Nandan", roll: "C327", sapId: "70022600370", image: `${REPO_RAW}/Daksh.jpeg?v=daksh-latest` },
 ];
 
 const CITATIONS = [
@@ -488,6 +488,7 @@ function Team() {
             </div>
             <div className="mt-4 font-display text-lg font-bold">{member.name}</div>
             <div className="tech-label mt-1 text-xs text-accent">B.Tech CE, Div: E, Batch: E1</div>
+            <div className="tech-label mt-1 text-xs text-accent">Sap ID: {member.sapId}</div>
             <div className="tech-label mt-1 text-xs text-accent">{member.roll}</div>
           </Panel>
         ))}
